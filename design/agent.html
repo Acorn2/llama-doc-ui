@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能分析 - PDF文献智能分析服务</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#8B5CF6',
+                        accent: '#06B6D4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .analysis-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg mr-3">
+                            <i data-lucide="brain" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">PDF智能分析</h1>
+                    </div>
+                    <div class="hidden md:ml-10 md:flex md:space-x-8">
+                        <a href="dashboard.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">仪表板</a>
+                        <a href="documents.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">文档管理</a>
+                        <a href="knowledge-base.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">知识库</a>
+                        <a href="chat.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">智能对话</a>
+                        <a href="agent.html" class="text-blue-600 border-b-2 border-blue-600 px-1 pt-1 pb-4 text-sm font-medium">AI分析</a>
+                        <a href="monitor.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">系统监控</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <i data-lucide="sun" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                    </button>
+                    <a href="index.html" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white transition-colors">
+                        <i data-lucide="home" class="w-4 h-4 mr-1"></i>
+                        返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-2">AI智能分析</h1>
+                    <p class="text-pink-100 text-lg">基于LangChain Agent的智能文档分析与知识推理</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="analysis-card rounded-xl p-4 text-center text-white">
+                        <div class="text-2xl font-bold">3,892</div>
+                        <div class="text-pink-100 text-sm">分析次数</div>
+                    </div>
+                    <div class="analysis-card rounded-xl p-4 text-center text-white">
+                        <div class="text-2xl font-bold">98.5%</div>
+                        <div class="text-pink-100 text-sm">准确率</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Function Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Document Analysis -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 card-hover fade-in">
+                <div class="flex items-center mb-4">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl">
+                        <i data-lucide="file-search" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <h3 class="ml-3 text-xl font-semibold text-gray-900 dark:text-white">文档分析</h3>
+                </div>
+                <p class="text-gray-600 dark:text-gray-300 mb-6">深度分析文档内容，提取关键信息和核心观点</p>
+                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors" onclick="openAnalysisModal('document')">
+                    开始分析
+                </button>
+            </div>
+
+            <!-- Knowledge Search -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 card-hover fade-in">
+                <div class="flex items-center mb-4">
+                    <div class="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl">
+                        <i data-lucide="search" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <h3 class="ml-3 text-xl font-semibold text-gray-900 dark:text-white">知识搜索</h3>
+                </div>
+                <p class="text-gray-600 dark:text-gray-300 mb-6">基于语义理解的智能知识检索和推理</p>
+                <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors" onclick="openAnalysisModal('search')">
+                    智能搜索
+                </button>
+            </div>
+
+            <!-- Summary Generation -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 card-hover fade-in">
+                <div class="flex items-center mb-4">
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-600 p-3 rounded-xl">
+                        <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <h3 class="ml-3 text-xl font-semibold text-gray-900 dark:text-white">摘要生成</h3>
+                </div>
+                <p class="text-gray-600 dark:text-gray-300 mb-6">自动生成知识库内容的结构化摘要</p>
+                <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors" onclick="openAnalysisModal('summary')">
+                    生成摘要
+                </button>
+            </div>
+        </section>
+
+        <!-- Recent Analysis -->
+        <section class="mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                        <i data-lucide="clock" class="w-5 h-5 mr-2 text-gray-600"></i>
+                        最近分析
+                    </h2>
+                    <button class="text-blue-600 hover:text-blue-700 text-sm font-medium">查看全部</button>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Analysis Item 1 -->
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 mr-3">
+                                        <i data-lucide="file-search" class="w-3 h-3 mr-1"></i>
+                                        文档分析
+                                    </span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">机器学习研究</span>
+                                </div>
+                                <h3 class="font-medium text-gray-900 dark:text-white mb-1">深度学习算法性能比较分析</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">分析了CNN、RNN、Transformer等深度学习架构在不同任务上的性能表现...</p>
+                                <div class="flex items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <span>处理时间: 2.3秒</span>
+                                    <span class="mx-2">•</span>
+                                    <span>2小时前</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors">
+                                    <i data-lucide="eye" class="w-4 h-4 text-gray-500"></i>
+                                </button>
+                                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors">
+                                    <i data-lucide="download" class="w-4 h-4 text-gray-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Item 2 -->
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 mr-3">
+                                        <i data-lucide="file-text" class="w-3 h-3 mr-1"></i>
+                                        摘要生成
+                                    </span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">自然语言处理</span>
+                                </div>
+                                <h3 class="font-medium text-gray-900 dark:text-white mb-1">BERT模型技术要点总结</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">生成了关于BERT模型架构、预训练方法和应用场景的结构化摘要...</p>
+                                <div class="flex items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <span>处理时间: 4.1秒</span>
+                                    <span class="mx-2">•</span>
+                                    <span>5小时前</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors">
+                                    <i data-lucide="eye" class="w-4 h-4 text-gray-500"></i>
+                                </button>
+                                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors">
+                                    <i data-lucide="download" class="w-4 h-4 text-gray-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Item 3 -->
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 mr-3">
+                                        <i data-lucide="search" class="w-3 h-3 mr-1"></i>
+                                        知识搜索
+                                    </span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">计算机视觉</span>
+                                </div>
+                                <h3 class="font-medium text-gray-900 dark:text-white mb-1">目标检测算法演进历程</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">搜索并分析了从R-CNN到YOLO系列算法的技术发展脉络...</p>
+                                <div class="flex items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <span>处理时间: 1.8秒</span>
+                                    <span class="mx-2">•</span>
+                                    <span>1天前</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors">
+                                    <i data-lucide="eye" class="w-4 h-4 text-gray-500"></i>
+                                </button>
+                                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors">
+                                    <i data-lucide="download" class="w-4 h-4 text-gray-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agent Status -->
+        <section>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 fade-in">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+                    <i data-lucide="settings" class="w-5 h-5 mr-2 text-gray-600"></i>
+                    Agent状态管理
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Active Agents -->
+                    <div>
+                        <h3 class="font-medium text-gray-900 dark:text-white mb-4">活跃Agent</h3>
+                        <div class="space-y-3">
+                            <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white">机器学习研究 Agent</div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-400">kb-001:qwen</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="p-1 hover:bg-green-100 dark:hover:bg-green-800 rounded transition-colors">
+                                            <i data-lucide="eye" class="w-4 h-4 text-green-600"></i>
+                                        </button>
+                                        <button class="p-1 hover:bg-green-100 dark:hover:bg-green-800 rounded transition-colors">
+                                            <i data-lucide="refresh-cw" class="w-4 h-4 text-green-600"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-xs text-green-700 dark:text-green-400">
+                                    对话历史: 12条 • 工具数量: 3个 • 内存已启用
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-blue-500 rounded-full mr-3 animate-pulse"></div>
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white">深度学习技术 Agent</div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-400">kb-002:qwen</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="p-1 hover:bg-blue-100 dark:hover:bg-blue-800 rounded transition-colors">
+                                            <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
+                                        </button>
+                                        <button class="p-1 hover:bg-blue-100 dark:hover:bg-blue-800 rounded transition-colors">
+                                            <i data-lucide="refresh-cw" class="w-4 h-4 text-blue-600"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-xs text-blue-700 dark:text-blue-400">
+                                    对话历史: 8条 • 工具数量: 3个 • 内存已启用
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cache Management -->
+                    <div>
+                        <h3 class="font-medium text-gray-900 dark:text-white mb-4">缓存管理</h3>
+                        <div class="space-y-4">
+                            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="font-medium text-gray-900 dark:text-white">Agent缓存</span>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">5个活跃</span>
+                                </div>
+                                <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 75%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                                    <span>已使用 75%</span>
+                                    <span>128 MB / 170 MB</span>
+                                </div>
+                            </div>
+
+                            <div class="flex space-x-3">
+                                <button class="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors text-sm">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-1 inline"></i>
+                                    清除缓存
+                                </button>
+                                <button class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm">
+                                    <i data-lucide="trash-2" class="w-4 h-4 mr-1 inline"></i>
+                                    清除记忆
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Analysis Modal -->
+    <div id="analysisModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="modalTitle" class="text-lg font-semibold text-gray-900 dark:text-white">AI智能分析</h3>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <!-- Knowledge Base Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择知识库</label>
+                    <select id="modalKbSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">选择知识库...</option>
+                        <option value="kb-001">机器学习研究</option>
+                        <option value="kb-002">深度学习技术</option>
+                        <option value="kb-003">自然语言处理</option>
+                        <option value="kb-004">计算机视觉</option>
+                    </select>
+                </div>
+
+                <!-- Input Area -->
+                <div id="inputArea" class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分析查询</label>
+                    <textarea id="queryInput" rows="4" placeholder="输入您想要分析的问题或主题..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
+                </div>
+
+                <!-- Options -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分析选项</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 mr-2">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">包含详细引用来源</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 mr-2">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">生成结构化输出</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 mr-2" checked>
+                            <span class="text-sm text-gray-700 dark:text-gray-300">启用上下文记忆</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Result Area -->
+                <div id="resultArea" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分析结果</label>
+                    <div id="resultContent" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden text-center py-8">
+                    <div class="loading-spinner w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600 dark:text-gray-400">AI正在分析中，请稍候...</p>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button id="cancelBtn" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    取消
+                </button>
+                <button id="analyzeBtn" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-colors">
+                    开始分析
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+        
+        themeToggle.addEventListener('click', () => {
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            html.classList.toggle('dark', savedTheme === 'dark');
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            html.classList.add('dark');
+        }
+
+        // Modal functionality
+        const analysisModal = document.getElementById('analysisModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const closeModal = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const queryInput = document.getElementById('queryInput');
+        const inputArea = document.getElementById('inputArea');
+        const resultArea = document.getElementById('resultArea');
+        const resultContent = document.getElementById('resultContent');
+        const loadingState = document.getElementById('loadingState');
+
+        let currentAnalysisType = '';
+
+        function openAnalysisModal(type) {
+            currentAnalysisType = type;
+            
+            // Set modal title and placeholder based on type
+            const titles = {
+                'document': '文档分析',
+                'search': '知识搜索', 
+                'summary': '摘要生成'
+            };
+            
+            const placeholders = {
+                'document': '请描述您想要分析的具体问题或主题...',
+                'search': '输入您想要搜索的知识点或问题...',
+                'summary': '选择知识库后将自动生成该知识库的整体摘要'
+            };
+
+            modalTitle.textContent = titles[type];
+            queryInput.placeholder = placeholders[type];
+            
+            // Hide results and show input
+            resultArea.classList.add('hidden');
+            inputArea.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            
+            // For summary, hide input area since it's auto-generated
+            if (type === 'summary') {
+                inputArea.classList.add('hidden');
+            }
+            
+            analysisModal.classList.remove('hidden');
+            analysisModal.classList.add('flex');
+        }
+
+        function closeAnalysisModal() {
+            analysisModal.classList.add('hidden');
+            analysisModal.classList.remove('flex');
+            queryInput.value = '';
+            resultArea.classList.add('hidden');
+            inputArea.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+        }
+
+        closeModal.addEventListener('click', closeAnalysisModal);
+        cancelBtn.addEventListener('click', closeAnalysisModal);
+
+        // Close modal when clicking outside
+        analysisModal.addEventListener('click', (e) => {
+            if (e.target === analysisModal) {
+                closeAnalysisModal();
+            }
+        });
+
+        // Analyze button functionality
+        analyzeBtn.addEventListener('click', () => {
+            const query = queryInput.value.trim();
+            const kbId = document.getElementById('modalKbSelect').value;
+            
+            if (!kbId) {
+                alert('请先选择知识库');
+                return;
+            }
+            
+            if (currentAnalysisType !== 'summary' && !query) {
+                alert('请输入分析查询');
+                return;
+            }
+
+            // Show loading state
+            inputArea.classList.add('hidden');
+            resultArea.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            
+            // Simulate analysis
+            setTimeout(() => {
+                loadingState.classList.add('hidden');
+                resultArea.classList.remove('hidden');
+                
+                // Mock result based on analysis type
+                let mockResult = '';
+                if (currentAnalysisType === 'document') {
+                    mockResult = `
+                        <h4 class="font-semibold mb-3">文档分析结果</h4>
+                        <div class="space-y-3">
+                            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                <h5 class="font-medium text-blue-800 dark:text-blue-300">核心观点</h5>
+                                <p class="text-sm text-blue-700 dark:text-blue-400 mt-1">基于深度学习的文档分析方法能够有效提取语义信息...</p>
+                            </div>
+                            <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                <h5 class="font-medium text-green-800 dark:text-green-300">关键技术</h5>
+                                <ul class="text-sm text-green-700 dark:text-green-400 mt-1 space-y-1">
+                                    <li>• Transformer架构</li>
+                                    <li>• 注意力机制</li>
+                                    <li>• 预训练语言模型</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                } else if (currentAnalysisType === 'search') {
+                    mockResult = `
+                        <h4 class="font-semibold mb-3">搜索结果</h4>
+                        <div class="space-y-3">
+                            <div class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h5 class="font-medium">机器学习算法比较</h5>
+                                    <span class="text-xs text-gray-500">相关度: 95%</span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">支持向量机、随机森林和神经网络在不同场景下的性能对比...</p>
+                            </div>
+                            <div class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h5 class="font-medium">深度学习优化方法</h5>
+                                    <span class="text-xs text-gray-500">相关度: 87%</span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Adam、SGD等优化算法的原理和适用场景分析...</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    mockResult = `
+                        <h4 class="font-semibold mb-3">知识库摘要</h4>
+                        <div class="space-y-4">
+                            <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                <h5 class="font-medium text-purple-800 dark:text-purple-300">内容概览</h5>
+                                <p class="text-sm text-purple-700 dark:text-purple-400 mt-1">该知识库包含156篇机器学习相关文档，涵盖监督学习、无监督学习、强化学习等主要领域...</p>
+                            </div>
+                            <div class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                                <h5 class="font-medium text-orange-800 dark:text-orange-300">核心主题</h5>
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    <span class="px-2 py-1 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded text-xs">神经网络</span>
+                                    <span class="px-2 py-1 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded text-xs">决策树</span>
+                                    <span class="px-2 py-1 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded text-xs">聚类算法</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                resultContent.innerHTML = mockResult;
+            }, 2000);
+        });
+
+        // Fade-in animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html> 

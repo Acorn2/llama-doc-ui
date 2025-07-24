@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库管理 - PDF文献智能分析服务</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#8B5CF6',
+                        accent: '#06B6D4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .kb-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .dark .kb-card {
+            background: linear-gradient(135deg, rgba(31,41,55,0.9) 0%, rgba(31,41,55,0.7) 100%);
+            border: 1px solid rgba(75,85,99,0.3);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg mr-3">
+                            <i data-lucide="brain" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">PDF智能分析</h1>
+                    </div>
+                    <div class="hidden md:ml-10 md:flex md:space-x-8">
+                        <a href="dashboard.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">仪表板</a>
+                        <a href="documents.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">文档管理</a>
+                        <a href="knowledge-base.html" class="text-blue-600 border-b-2 border-blue-600 px-1 pt-1 pb-4 text-sm font-medium">知识库</a>
+                        <a href="chat.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">智能对话</a>
+                        <a href="agent.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">AI分析</a>
+                        <a href="monitor.html" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white px-1 pt-1 pb-4 text-sm font-medium transition-colors">系统监控</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <i data-lucide="sun" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                    </button>
+                    <a href="index.html" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white transition-colors">
+                        <i data-lucide="home" class="w-4 h-4 mr-1"></i>
+                        返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-purple-600 to-purple-700 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-2">知识库管理</h1>
+                    <p class="text-purple-100 text-lg">创建、组织和管理您的文档知识库</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="createKbBtn" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-6 py-3 rounded-xl text-white font-medium transition-colors flex items-center">
+                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                        创建知识库
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Stats Overview -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg card-hover fade-in">
+                <div class="flex items-center">
+                    <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-xl">
+                        <i data-lucide="database" class="w-8 h-8 text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">知识库总数</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white">23</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg card-hover fade-in">
+                <div class="flex items-center">
+                    <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-xl">
+                        <i data-lucide="file-text" class="w-8 h-8 text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">关联文档</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white">1,247</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg card-hover fade-in">
+                <div class="flex items-center">
+                    <div class="p-3 bg-green-100 dark:bg-green-900 rounded-xl">
+                        <i data-lucide="search" class="w-8 h-8 text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">搜索次数</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white">8,456</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg card-hover fade-in">
+                <div class="flex items-center">
+                    <div class="p-3 bg-orange-100 dark:bg-orange-900 rounded-xl">
+                        <i data-lucide="layers" class="w-8 h-8 text-orange-600 dark:text-orange-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">向量片段</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white">45,892</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search and Filter -->
+        <section class="mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                            <input type="text" placeholder="搜索知识库..." class="pl-10 pr-4 py-2 w-64 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <select class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500">
+                            <option>全部状态</option>
+                            <option>活跃</option>
+                            <option>已归档</option>
+                        </select>
+                        <select class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500">
+                            <option>按创建时间</option>
+                            <option>按文档数量</option>
+                            <option>按名称</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <i data-lucide="grid-3x3" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                        <button class="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <i data-lucide="list" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Knowledge Bases Grid -->
+        <section>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Knowledge Base 1 -->
+                <div class="kb-card rounded-xl p-6 shadow-lg card-hover fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl">
+                                <i data-lucide="brain" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">机器学习研究</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">ID: kb-001</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <i data-lucide="more-horizontal" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">包含机器学习基础理论、算法实现和实践案例的综合知识库</p>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">156</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">文档</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-green-600 dark:text-green-400">3.2K</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">向量片段</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-purple-600 dark:text-purple-400">892</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">查询次数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                <i data-lucide="circle" class="w-2 h-2 mr-1 fill-current"></i>
+                                活跃
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">2天前更新</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="p-2 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-lg transition-colors">
+                                <i data-lucide="search" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                            </button>
+                            <button class="p-2 bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors">
+                                <i data-lucide="message-square" class="w-4 h-4 text-purple-600 dark:text-purple-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base 2 -->
+                <div class="kb-card rounded-xl p-6 shadow-lg card-hover fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl">
+                                <i data-lucide="cpu" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">深度学习技术</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">ID: kb-002</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <i data-lucide="more-horizontal" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">深度学习框架、神经网络架构和前沿技术研究文档集合</p>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">89</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">文档</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-green-600 dark:text-green-400">2.1K</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">向量片段</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-purple-600 dark:text-purple-400">654</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">查询次数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                <i data-lucide="circle" class="w-2 h-2 mr-1 fill-current"></i>
+                                活跃
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">1天前更新</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="p-2 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-lg transition-colors">
+                                <i data-lucide="search" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                            </button>
+                            <button class="p-2 bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors">
+                                <i data-lucide="message-square" class="w-4 h-4 text-purple-600 dark:text-purple-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base 3 -->
+                <div class="kb-card rounded-xl p-6 shadow-lg card-hover fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-gradient-to-br from-orange-500 to-orange-600 p-3 rounded-xl">
+                                <i data-lucide="book-open" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">自然语言处理</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">ID: kb-003</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <i data-lucide="more-horizontal" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">NLP技术、语言模型和文本分析方法的专业文献库</p>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">234</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">文档</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-green-600 dark:text-green-400">5.8K</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">向量片段</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-purple-600 dark:text-purple-400">1.2K</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">查询次数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                <i data-lucide="circle" class="w-2 h-2 mr-1 fill-current"></i>
+                                活跃
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">3小时前更新</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="p-2 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-lg transition-colors">
+                                <i data-lucide="search" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                            </button>
+                            <button class="p-2 bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors">
+                                <i data-lucide="message-square" class="w-4 h-4 text-purple-600 dark:text-purple-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base 4 -->
+                <div class="kb-card rounded-xl p-6 shadow-lg card-hover fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-gradient-to-br from-purple-500 to-purple-600 p-3 rounded-xl">
+                                <i data-lucide="eye" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">计算机视觉</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">ID: kb-004</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <i data-lucide="more-horizontal" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">图像处理、目标检测和视觉算法的研究文档集合</p>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">78</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">文档</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-green-600 dark:text-green-400">1.9K</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">向量片段</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-purple-600 dark:text-purple-400">445</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">查询次数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                <i data-lucide="circle" class="w-2 h-2 mr-1 fill-current"></i>
+                                更新中
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">5天前更新</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="p-2 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-lg transition-colors">
+                                <i data-lucide="search" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                            </button>
+                            <button class="p-2 bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors">
+                                <i data-lucide="message-square" class="w-4 h-4 text-purple-600 dark:text-purple-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base 5 -->
+                <div class="kb-card rounded-xl p-6 shadow-lg card-hover fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-gradient-to-br from-red-500 to-red-600 p-3 rounded-xl">
+                                <i data-lucide="shield" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">网络安全</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">ID: kb-005</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <i data-lucide="more-horizontal" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-300 text-sm mb-4">网络安全、密码学和威胁防护技术的专业知识库</p>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">45</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">文档</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-green-600 dark:text-green-400">1.1K</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">向量片段</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-purple-600 dark:text-purple-400">287</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">查询次数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                <i data-lucide="circle" class="w-2 h-2 mr-1 fill-current"></i>
+                                已归档
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">2周前更新</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                <i data-lucide="search" class="w-4 h-4 text-gray-600 dark:text-gray-400"></i>
+                            </button>
+                            <button class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                <i data-lucide="archive" class="w-4 h-4 text-gray-600 dark:text-gray-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add New Knowledge Base Card -->
+                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-purple-400 dark:hover:border-purple-500 transition-colors cursor-pointer card-hover fade-in" id="addKbCard">
+                    <div class="bg-purple-100 dark:bg-purple-900 p-4 rounded-full mb-4">
+                        <i data-lucide="plus" class="w-8 h-8 text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">创建新知识库</h3>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">开始构建您的专业知识库</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Create Knowledge Base Modal -->
+    <div id="createKbModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">创建新知识库</h3>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <form class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">知识库名称</label>
+                    <input type="text" placeholder="输入知识库名称" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">描述</label>
+                    <textarea rows="3" placeholder="简要描述知识库的用途和内容" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">标签</label>
+                    <input type="text" placeholder="添加标签，用逗号分隔" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" id="isPublic" class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                    <label for="isPublic" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">设为公开知识库</label>
+                </div>
+                
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" id="cancelBtn" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        取消
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+                        创建
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+        
+        themeToggle.addEventListener('click', () => {
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            html.classList.toggle('dark', savedTheme === 'dark');
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            html.classList.add('dark');
+        }
+
+        // Modal functionality
+        const createKbModal = document.getElementById('createKbModal');
+        const createKbBtn = document.getElementById('createKbBtn');
+        const addKbCard = document.getElementById('addKbCard');
+        const closeModal = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        function openModal() {
+            createKbModal.classList.remove('hidden');
+            createKbModal.classList.add('flex');
+        }
+
+        function closeKbModal() {
+            createKbModal.classList.add('hidden');
+            createKbModal.classList.remove('flex');
+        }
+
+        createKbBtn.addEventListener('click', openModal);
+        addKbCard.addEventListener('click', openModal);
+        closeModal.addEventListener('click', closeKbModal);
+        cancelBtn.addEventListener('click', closeKbModal);
+
+        // Close modal when clicking outside
+        createKbModal.addEventListener('click', (e) => {
+            if (e.target === createKbModal) {
+                closeKbModal();
+            }
+        });
+
+        // Fade-in animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html> 
