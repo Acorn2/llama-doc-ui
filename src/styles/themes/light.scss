@@ -1,0 +1,67 @@
+// 浅色主题变量
+:root,
+[data-theme="light"] {
+  // 主色调
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-dark: #2563eb;
+  
+  // 辅助色
+  --color-secondary: #8b5cf6;
+  --color-accent: #06b6d4;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  // 背景色
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8fafc;
+  --color-bg-tertiary: #f1f5f9;
+  --color-bg-quaternary: #e2e8f0;
+
+  // 文本色
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-text-quaternary: #d1d5db;
+  --color-text-inverse: #ffffff;
+
+  // 边框色
+  --color-border-primary: #e5e7eb;
+  --color-border-secondary: #d1d5db;
+  --color-border-tertiary: #9ca3af;
+
+  // 阴影
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  // 特殊效果
+  --shadow-colored: 0 4px 14px 0 rgba(59, 130, 246, 0.15);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+
+  // 状态色变体
+  --color-success-light: #86efac;
+  --color-success-dark: #16a34a;
+  --color-warning-light: #fde68a;
+  --color-warning-dark: #d97706;
+  --color-error-light: #fca5a5;
+  --color-error-dark: #dc2626;
+
+  // 卡片和组件
+  --color-card-bg: #ffffff;
+  --color-card-border: #e5e7eb;
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-button-bg: #f3f4f6;
+  --color-button-hover: #e5e7eb;
+
+  // 导航和菜单
+  --color-nav-bg: #ffffff;
+  --color-nav-border: #e5e7eb;
+  --color-menu-hover: #f3f4f6;
+  --color-menu-active: #eff6ff;
+} 

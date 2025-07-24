@@ -1,0 +1,112 @@
+// 深色主题变量
+[data-theme="dark"] {
+  // 主色调
+  --color-primary: #60a5fa;
+  --color-primary-light: #93c5fd;
+  --color-primary-dark: #3b82f6;
+  
+  // 辅助色
+  --color-secondary: #c084fc;
+  --color-accent: #22d3ee;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  // 背景色
+  --color-bg-primary: #111827;
+  --color-bg-secondary: #1f2937;
+  --color-bg-tertiary: #374151;
+  --color-bg-quaternary: #4b5563;
+
+  // 文本色
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-tertiary: #9ca3af;
+  --color-text-quaternary: #6b7280;
+  --color-text-inverse: #111827;
+
+  // 边框色
+  --color-border-primary: #374151;
+  --color-border-secondary: #4b5563;
+  --color-border-tertiary: #6b7280;
+
+  // 阴影 (深色主题下使用更柔和的阴影)
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+  // 特殊效果
+  --shadow-colored: 0 4px 14px 0 rgba(96, 165, 250, 0.3);
+  --shadow-glow: 0 0 20px rgba(96, 165, 250, 0.3);
+
+  // 状态色变体
+  --color-success-light: #6ee7b7;
+  --color-success-dark: #34d399;
+  --color-warning-light: #fcd34d;
+  --color-warning-dark: #f59e0b;
+  --color-error-light: #fca5a5;
+  --color-error-dark: #ef4444;
+
+  // 卡片和组件
+  --color-card-bg: #1f2937;
+  --color-card-border: #374151;
+  --color-input-bg: #374151;
+  --color-input-border: #4b5563;
+  --color-button-bg: #374151;
+  --color-button-hover: #4b5563;
+
+  // 导航和菜单
+  --color-nav-bg: #1f2937;
+  --color-nav-border: #374151;
+  --color-menu-hover: #374151;
+  --color-menu-active: #1e3a8a;
+}
+
+// 深色主题下的特殊样式调整
+[data-theme="dark"] {
+  // Element Plus 组件深色主题适配
+  .el-card {
+    background-color: var(--color-card-bg);
+    border-color: var(--color-card-border);
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    background-color: var(--color-input-bg);
+    border-color: var(--color-input-border);
+    color: var(--color-text-primary);
+  }
+
+  .el-button {
+    &.el-button--default {
+      background-color: var(--color-button-bg);
+      border-color: var(--color-border-secondary);
+      color: var(--color-text-primary);
+
+      &:hover {
+        background-color: var(--color-button-hover);
+      }
+    }
+  }
+
+  .el-upload-dragger {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-secondary);
+  }
+
+  // 自定义滚动条深色主题
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-tertiary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
+  }
+} 
