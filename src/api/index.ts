@@ -19,7 +19,7 @@ export interface ApiResponse<T = any> {
 
 // 导出具体API模块
 export * from './modules/document'
-export * from './modules/knowledge'
 export * from './modules/chat'
 export * from './modules/agent'
-export * from './modules/monitor' 
+export * from './knowledge-base'
+export * from './user' 

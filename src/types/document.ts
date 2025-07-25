@@ -33,16 +33,26 @@ export interface Document {
 }
 
 export interface DocumentQuery {
+  // 分页参数
+  page?: number
+  page_size?: number
   skip?: number
   limit?: number
+  
+  // 搜索过滤参数
+  filename?: string
   status?: DocumentStatus
   file_type?: FileType
   keyword?: string
 }
 
 export interface DocumentListResponse {
-  items: Document[]
-  total: number
+  data: {
+    items: Document[]
+    total: number
+    page?: number
+    page_size?: number
+  }
 }
 
 export interface DocumentStatusInfo {

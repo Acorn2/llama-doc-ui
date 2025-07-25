@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from '@/store/modules/user'
 import ThemeToggle from './ThemeToggle.vue'
 
 interface Props {
@@ -18,6 +19,8 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
+const userStore = useUserStore()
 
 // 生成面包屑
 const breadcrumbs = computed(() => {
@@ -31,6 +34,25 @@ const breadcrumbs = computed(() => {
 const handleToggleSidebar = () => {
   emit('toggleSidebar')
 }
+
+// 用户操作菜单
+const handleUserMenuClick = (command: string) => {
+  switch (command) {
+    case 'profile':
+      router.push('/profile')
+      break
+    case 'logout':
+      userStore.logout()
+      router.push('/login')
+      break
+  }
+}
+
+// 用户显示名称
+const displayName = computed(() => {
+  if (!userStore.user) return ''
+  return userStore.user.full_name || userStore.user.username || userStore.user.email?.split('@')[0] || '用户'
+})
 </script>
 
 <template>
@@ -111,17 +133,23 @@ const handleToggleSidebar = () => {
       <theme-toggle />
       
       <!-- 用户头像和下拉菜单 -->
-      <el-dropdown trigger="click" placement="bottom-end">
+      <el-dropdown trigger="click" placement="bottom-end" @command="handleUserMenuClick">
         <div class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg p-2 transition-colors duration-200">
           <el-avatar 
-            size="small" 
-            class="bg-blue-500"
+            :size="32"
+            :src="userStore.user?.avatar_url"
+            class="border border-gray-200 dark:border-gray-600"
           >
             <el-icon><User /></el-icon>
           </el-avatar>
-          <span class="hidden md:inline text-sm font-medium text-gray-700 dark:text-gray-300">
-            管理员
-          </span>
+          <div class="hidden md:flex flex-col items-start">
+            <span class="text-sm font-medium text-gray-900 dark:text-white">
+              {{ displayName }}
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              {{ userStore.user?.email || userStore.user?.phone || '' }}
+            </span>
+          </div>
           <el-icon size="12" class="text-gray-400">
             <ArrowDown />
           </el-icon>
@@ -129,15 +157,11 @@ const handleToggleSidebar = () => {
         
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item>
+            <el-dropdown-item command="profile">
               <el-icon><User /></el-icon>
-              个人设置
+              个人资料
             </el-dropdown-item>
-            <el-dropdown-item>
-              <el-icon><Setting /></el-icon>
-              系统设置
-            </el-dropdown-item>
-            <el-dropdown-item divided>
+            <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>
               退出登录
             </el-dropdown-item>

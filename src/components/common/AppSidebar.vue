@@ -33,9 +33,15 @@ const menuItems = [
   },
   {
     name: 'KnowledgeBase',
-    title: '知识库',
+    title: '我的知识库',
     icon: 'Collection',
     path: '/knowledge-base'
+  },
+  {
+    name: 'PublicKnowledgeBase',
+    title: '公开知识库',
+    icon: 'Share',
+    path: '/knowledge-base/public'
   },
   {
     name: 'Chat',
@@ -48,12 +54,6 @@ const menuItems = [
     title: 'AI分析',
     icon: 'MagicStick', 
     path: '/agent'
-  },
-  {
-    name: 'Monitor',
-    title: '系统监控',
-    icon: 'Monitor',
-    path: '/monitor'
   }
 ]
 

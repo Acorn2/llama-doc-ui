@@ -1,0 +1,267 @@
+// 表单组件样式优化
+
+// Element Plus 输入框样式重写
+.el-input {
+  .el-input__wrapper {
+    border-radius: 12px;
+    border: 2px solid var(--el-border-color-light);
+    box-shadow: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: var(--el-fill-color-blank);
+    
+    &:hover {
+      border-color: var(--el-color-primary-light-7);
+      background-color: var(--el-fill-color-light);
+    }
+    
+    &.is-focus {
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
+      outline: none;
+    }
+  }
+  
+  .el-input__inner {
+    border: none;
+    outline: none;
+    box-shadow: none;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 16px 16px;
+    color: var(--el-text-color-primary);
+    background: transparent;
+    
+    &::placeholder {
+      color: var(--el-text-color-placeholder);
+      font-weight: 400;
+    }
+    
+    &:focus {
+      outline: none;
+      box-shadow: none;
+    }
+  }
+  
+  // 前缀图标样式
+  .el-input__prefix {
+    color: var(--el-text-color-regular);
+    transition: color 0.3s ease;
+  }
+  
+  // 后缀图标样式（密码显示/隐藏）
+  .el-input__suffix {
+    .el-input__suffix-inner {
+      .el-icon {
+        color: var(--el-text-color-regular);
+        transition: color 0.3s ease;
+        
+        &:hover {
+          color: var(--el-color-primary);
+        }
+      }
+    }
+  }
+  
+  // 清除按钮样式
+  .el-input__clear {
+    color: var(--el-text-color-regular);
+    
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+}
+
+// 聚焦状态下前缀图标颜色变化
+.el-input.is-focus {
+  .el-input__prefix {
+    color: var(--el-color-primary);
+  }
+}
+
+// 表单项样式
+.el-form-item {
+  margin-bottom: 24px;
+  
+  .el-form-item__label {
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  
+  .el-form-item__error {
+    font-size: 12px;
+    color: var(--el-color-danger);
+    line-height: 1.4;
+    padding-top: 4px;
+    margin-left: 4px;
+  }
+}
+
+// 按钮样式优化
+.el-button {
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  
+  &.el-button--large {
+    padding: 16px 24px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  
+  &.el-button--primary {
+    background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-dark-2) 100%);
+    border-color: var(--el-color-primary);
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px -8px var(--el-color-primary);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+  }
+  
+  &.el-button--text {
+    color: var(--el-color-primary);
+    font-weight: 600;
+    
+    &:hover {
+      background-color: var(--el-color-primary-light-9);
+    }
+  }
+}
+
+// 复选框样式
+.el-checkbox {
+  .el-checkbox__input {
+    .el-checkbox__inner {
+      border-radius: 6px;
+      border: 2px solid var(--el-border-color);
+      transition: all 0.3s ease;
+      
+      &:hover {
+        border-color: var(--el-color-primary);
+      }
+    }
+    
+    &.is-checked {
+      .el-checkbox__inner {
+        background-color: var(--el-color-primary);
+        border-color: var(--el-color-primary);
+      }
+    }
+  }
+  
+  .el-checkbox__label {
+    font-size: 14px;
+    color: var(--el-text-color-regular);
+    line-height: 1.5;
+  }
+}
+
+// 卡片样式优化
+.el-card {
+  border-radius: 20px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  
+  .el-card__header {
+    padding: 32px 32px 0;
+    border-bottom: none;
+  }
+  
+  .el-card__body {
+    padding: 32px;
+  }
+  
+  &:hover {
+    box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+// 暗色主题适配
+[data-theme="dark"] {
+  .el-input {
+    .el-input__wrapper {
+      background-color: var(--el-fill-color-dark);
+      border-color: var(--el-border-color-dark);
+      
+      &:hover {
+        background-color: var(--el-fill-color);
+        border-color: var(--el-color-primary-light-5);
+      }
+      
+      &.is-focus {
+        background-color: var(--el-fill-color);
+        border-color: var(--el-color-primary);
+        box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.2);
+      }
+    }
+  }
+  
+  .el-card {
+    background-color: var(--el-bg-color-page);
+    border-color: var(--el-border-color-dark);
+    box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.3);
+    
+    &:hover {
+      box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .el-card {
+    border-radius: 16px;
+    margin: 16px;
+    
+    .el-card__header {
+      padding: 24px 24px 0;
+    }
+    
+    .el-card__body {
+      padding: 24px;
+    }
+  }
+  
+  .el-form-item {
+    margin-bottom: 20px;
+  }
+  
+  .el-input {
+    .el-input__inner {
+      padding: 14px 16px;
+      font-size: 16px; // 防止iOS缩放
+    }
+  }
+  
+  .el-button--large {
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+}
+
+// 动画效果
+@keyframes inputFocus {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.el-input.is-focus .el-input__wrapper {
+  animation: inputFocus 0.3s ease-out;
+} 

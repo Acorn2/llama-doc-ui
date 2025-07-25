@@ -1,11 +1,34 @@
 import type { RouteRecordRaw } from 'vue-router'
 
 export const routes: RouteRecordRaw[] = [
+  // 登录注册路由（不需要布局）
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: {
+      title: '登录',
+      public: true // 公开路由，不需要认证
+    }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/Register.vue'),
+    meta: {
+      title: '注册',
+      public: true
+    }
+  },
+  // 主应用布局
   {
     path: '/',
     name: 'Layout',
     component: () => import('@/components/common/AppLayout.vue'),
     redirect: '/dashboard',
+    meta: {
+      requiresAuth: true // 需要认证
+    },
     children: [
       {
         path: '/dashboard',
@@ -32,8 +55,28 @@ export const routes: RouteRecordRaw[] = [
         name: 'KnowledgeBase',
         component: () => import('@/views/KnowledgeBase.vue'),
         meta: {
-          title: '知识库',
+          title: '我的知识库',
           icon: 'Collection',
+          keepAlive: true
+        }
+      },
+      {
+        path: '/knowledge-base/public',
+        name: 'PublicKnowledgeBase',
+        component: () => import('@/views/PublicKnowledgeBase.vue'),
+        meta: {
+          title: '公开知识库',
+          icon: 'Share',
+          keepAlive: true
+        }
+      },
+      {
+        path: '/profile',
+        name: 'Profile',
+        component: () => import('@/views/Profile.vue'),
+        meta: {
+          title: '个人资料',
+          icon: 'User',
           keepAlive: true
         }
       },
@@ -55,16 +98,6 @@ export const routes: RouteRecordRaw[] = [
           title: 'AI分析',
           icon: 'MagicStick',
           keepAlive: true
-        }
-      },
-      {
-        path: '/monitor',
-        name: 'Monitor',
-        component: () => import('@/views/Monitor.vue'),
-        meta: {
-          title: '系统监控',
-          icon: 'Monitor',
-          keepAlive: false // 监控页面不缓存，保持数据实时性
         }
       }
     ]
