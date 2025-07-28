@@ -66,5 +66,5 @@ export interface ApiResponse<T = any> {
 export * from './modules/document'
 export * from './modules/chat'
 export * from './modules/agent'
-export * from './knowledge-base'
+export * from './modules/knowledge-base'
 export * from './user' 

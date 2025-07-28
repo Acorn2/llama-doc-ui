@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { knowledgeBaseApi } from '@/api/knowledge-base'
-import type { KnowledgeBase } from '@/types/user'
+import { KnowledgeBaseAPI, type KnowledgeBase } from '@/api/modules/knowledge-base'
 import { ElMessage } from 'element-plus'
 
 const activeTab = ref('analysis')
@@ -9,7 +8,14 @@ const loading = ref(false)
 const analysisQuery = ref('')
 const analysisResult = ref('')
 const searchQuery = ref('')
-const searchResults = ref([])
+const searchResults = ref<Array<{
+  id: string
+  title: string
+  content: string
+  relevance: number
+  source: string
+  kb_name?: string
+}>>([])
 const summaryResult = ref('')
 
 // 知识库相关
@@ -34,7 +40,7 @@ onMounted(() => {
 const loadKnowledgeBases = async () => {
   try {
     kbLoading.value = true
-    const response = await knowledgeBaseApi.getList({ include_public: true })
+    const response = await KnowledgeBaseAPI.getList({ include_public: true })
     knowledgeBases.value = response
   } catch (error) {
     console.error('加载知识库失败:', error)
@@ -46,7 +52,7 @@ const loadKnowledgeBases = async () => {
         name: '机器学习研究',
         description: '机器学习相关文档和研究',
         is_public: false,
-        owner_id: 'user1',
+        user_id: 'user1',
         document_count: 15,
         create_time: '2024-01-15T09:00:00Z'
       },
@@ -55,7 +61,7 @@ const loadKnowledgeBases = async () => {
         name: '深度学习技术',
         description: '深度学习技术文档集合',
         is_public: true,
-        owner_id: 'user2', 
+        user_id: 'user2', 
         document_count: 8,
         create_time: '2024-01-18T14:30:00Z'
       },
@@ -64,7 +70,7 @@ const loadKnowledgeBases = async () => {
         name: '自然语言处理',
         description: 'NLP相关技术和论文',
         is_public: true,
-        owner_id: 'user3',
+        user_id: 'user3',
         document_count: 12,
         create_time: '2024-01-20T10:15:00Z'
       }

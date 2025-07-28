@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { knowledgeBaseApi } from '@/api/knowledge-base'
-import type { KnowledgeBase, PublicKnowledgeBaseQuery } from '@/types/user'
+import { KnowledgeBaseAPI, type KnowledgeBase, type PublicKnowledgeBaseQuery } from '@/api/modules/knowledge-base'
 import { useUserStore } from '@/store/modules/user'
 
 const router = useRouter()
@@ -53,7 +52,7 @@ const loadKnowledgeBases = async () => {
       query.tags = selectedTags.value.join(',')
     }
     
-    const response = await knowledgeBaseApi.getPublicList(query)
+    const response = await KnowledgeBaseAPI.getPublicList(query)
     
     knowledgeBases.value = response.data.items
     total.value = response.data.total
@@ -107,7 +106,7 @@ const handleLike = async (kb: KnowledgeBase) => {
   }
   
   try {
-    const response = await knowledgeBaseApi.toggleLike(kb.id)
+    const response = await KnowledgeBaseAPI.toggleLike(kb.id)
     
     // 更新本地状态
     const index = knowledgeBases.value.findIndex(item => item.id === kb.id)
@@ -128,7 +127,7 @@ const viewKnowledgeBase = async (kb: KnowledgeBase) => {
   if (userStore.isAuthenticated) {
     // 记录访问行为
     try {
-      await knowledgeBaseApi.recordAccess(kb.id, {
+      await KnowledgeBaseAPI.recordAccess(kb.id, {
         access_type: 'view',
         access_metadata: {
           source: 'public_list',
