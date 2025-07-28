@@ -25,7 +25,14 @@ export class DocumentAPI {
 
   // 获取文档列表
   static async getList(params?: DocumentQuery): Promise<DocumentListResponse> {
-    const response = await api.get('/api/v1/documents', { params })
+    // 根据接口文档，使用skip和limit参数
+    const queryParams = {
+      skip: params?.skip || 0,
+      limit: params?.limit || 20,
+      ...params
+    }
+    
+    const response = await api.get('/api/v1/documents', { params: queryParams })
     return response.data
   }
 

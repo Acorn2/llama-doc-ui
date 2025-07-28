@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { DocumentAPI } from '@/api/modules/document'
 import type { Document, DocumentQuery } from '@/types'
 import { ElMessage } from 'element-plus'
+import { isAuthenticated } from '@/utils/auth'
 
 // 响应式数据
 const documents = ref<Document[]>([])
@@ -46,14 +47,28 @@ onMounted(() => {
   loadDocuments()
 })
 
+// 检查用户是否已登录
+const checkAuth = () => {
+  if (!isAuthenticated()) {
+    ElMessage.error('请先登录')
+    return false
+  }
+  return true
+}
+
 // 加载文档列表
 const loadDocuments = async () => {
+  // 检查认证状态
+  if (!checkAuth()) {
+    return
+  }
+  
   try {
     loading.value = true
     
     const params: DocumentQuery = {
-      page: currentPage.value,
-      page_size: pageSize.value
+      skip: (currentPage.value - 1) * pageSize.value,
+      limit: pageSize.value
     }
     
     // 添加搜索条件
@@ -68,32 +83,37 @@ const loadDocuments = async () => {
     }
     
     const response = await DocumentAPI.getList(params)
-    documents.value = response.data.items
-    total.value = response.data.total
     
-  } catch (error) {
+    // 根据接口文档，直接返回文档数组
+    if (Array.isArray(response)) {
+      documents.value = response
+      total.value = response.length
+    } else if (response.data) {
+      documents.value = response.data.items || response.data
+      total.value = response.data.total || response.data.length
+    } else {
+      documents.value = response
+      total.value = response.length
+    }
+    
+  } catch (error: any) {
     console.error('加载文档列表失败:', error)
-    ElMessage.error('加载文档列表失败')
-    // 使用模拟数据作为备选方案
-    documents.value = [
-      {
-        id: '1',
-        filename: '机器学习基础.pdf',
-        file_size: 2048576,
-        status: 'completed',
-        upload_time: '2024-01-20 10:30:00',
-        file_type: 'pdf'
-      },
-      {
-        id: '2', 
-        filename: '深度学习进阶.pdf',
-        file_size: 5242880,
-        status: 'processing',
-        upload_time: '2024-01-20 11:15:00',
-        file_type: 'pdf'
-      }
-    ]
-    total.value = 2
+    
+    // 如果是401错误，提示用户重新登录
+    if (error.response?.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('user_info')
+      return
+    }
+    
+    // 其他错误显示通用错误信息
+    const errorMessage = error.response?.data?.detail || error.message || '加载文档列表失败'
+    ElMessage.error(errorMessage)
+    
+    // 清空列表
+    documents.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

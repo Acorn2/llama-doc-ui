@@ -33,11 +33,9 @@ export interface Document {
 }
 
 export interface DocumentQuery {
-  // 分页参数
-  page?: number
-  page_size?: number
-  skip?: number
-  limit?: number
+  // 分页参数（根据接口文档）
+  skip?: number  // 跳过记录数 (默认: 0)
+  limit?: number // 返回记录数 (默认: 20)
   
   // 搜索过滤参数
   filename?: string
