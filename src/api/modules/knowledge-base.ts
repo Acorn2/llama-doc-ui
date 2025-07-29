@@ -128,7 +128,14 @@ export class KnowledgeBaseAPI {
 
   // 添加文档到知识库
   static async addDocument(kbId: string, documentId: string): Promise<void> {
-    await api.post(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}`)
+    try {
+      const response = await api.post(`/api/v1/knowledge-bases/${kbId}/documents/${documentId}`)
+      console.log('添加文档到知识库API响应:', response.data)
+      return response.data
+    } catch (error: any) {
+      console.error('添加文档到知识库API错误:', error)
+      throw error
+    }
   }
 
   // 从知识库移除文档
@@ -141,8 +148,31 @@ export class KnowledgeBaseAPI {
     skip?: number
     limit?: number
   }): Promise<any[]> {
-    const response = await api.get(`/api/v1/knowledge-bases/${kbId}/documents`, { params })
-    return response.data
+    try {
+      const response = await api.get(`/api/v1/knowledge-bases/${kbId}/documents`, { params })
+      console.log('获取知识库文档API响应:', response.data)
+      
+      // 确保返回数组 - 根据实际接口返回结构处理
+      if (Array.isArray(response.data)) {
+        return response.data
+      } else if (response.data && response.data.data && Array.isArray(response.data.data.documents)) {
+        // 处理 { success: true, data: { documents: [...] } } 结构
+        return response.data.data.documents
+      } else if (response.data && Array.isArray(response.data.data)) {
+        return response.data.data
+      } else if (response.data && Array.isArray(response.data.items)) {
+        return response.data.items
+      } else if (response.data && Array.isArray(response.data.documents)) {
+        // 处理直接在 data 下的 documents 数组
+        return response.data.documents
+      } else {
+        console.warn('知识库文档API返回了未知的数据结构:', response.data)
+        return []
+      }
+    } catch (error: any) {
+      console.error('获取知识库文档API错误:', error)
+      throw error
+    }
   }
 
   // 搜索知识库内容

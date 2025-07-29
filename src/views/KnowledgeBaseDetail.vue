@@ -1,8 +1,8 @@
 <template>
   <div class="kb-detail-page p-6">
     <!-- 页面头部 -->
-    <div class="page-header mb-6">
-      <div class="header-nav mb-4">
+    <div class="page-header mb-4">
+      <div class="header-nav mb-3">
         <el-button @click="goBack" type="text" class="back-btn">
           <el-icon class="mr-2"><ArrowLeft /></el-icon>
           返回知识库列表
@@ -11,64 +11,83 @@
       
       <div class="kb-info-card">
         <div v-if="loading" class="loading-skeleton">
-          <el-skeleton :rows="3" animated />
+          <el-skeleton :rows="2" animated />
         </div>
         
         <div v-else-if="knowledgeBase" class="kb-info-content">
           <div class="kb-header">
             <div class="kb-title-section">
-              <h1 class="kb-title">{{ knowledgeBase.name }}</h1>
-              <div class="kb-badges">
-                <el-tag v-if="knowledgeBase.is_public" type="success" size="large">公开</el-tag>
-                <el-tag v-else type="info" size="large">私有</el-tag>
-                <el-tag v-if="knowledgeBase.is_owner" type="warning" size="large">我的</el-tag>
+              <div class="title-row">
+                <h1 class="kb-title">{{ knowledgeBase.name }}</h1>
+                <div class="kb-badges">
+                  <el-tag v-if="knowledgeBase.is_public" type="success" size="small">公开</el-tag>
+                  <el-tag v-else type="info" size="small">私有</el-tag>
+                  <el-tag v-if="knowledgeBase.is_owner" type="warning" size="small">我的</el-tag>
+                </div>
+              </div>
+              
+              <!-- 紧凑的元信息展示 -->
+              <div class="kb-meta-compact">
+                <span class="meta-item-compact">
+                  <el-icon><Document /></el-icon>
+                  {{ knowledgeBase.document_count }} 个文档
+                </span>
+                <span class="meta-item-compact">
+                  <el-icon><View /></el-icon>
+                  {{ knowledgeBase.view_count }} 次浏览
+                </span>
+                <span v-if="knowledgeBase.is_public" class="meta-item-compact">
+                  <el-icon><Star /></el-icon>
+                  {{ knowledgeBase.like_count }} 个点赞
+                </span>
+                <span class="meta-item-compact">
+                  <el-icon><Calendar /></el-icon>
+                  {{ formatTime(knowledgeBase.create_time) }}
+                </span>
               </div>
             </div>
             
             <div v-if="knowledgeBase.is_owner" class="kb-actions">
-              <el-button @click="showEditDialog = true" type="primary" plain>
+              <el-button @click="showEditDialog = true" type="primary" plain size="small">
                 <el-icon class="mr-1"><Edit /></el-icon>
                 编辑
               </el-button>
-              <el-button @click="openUploadDialog" type="success">
+              <el-button @click="openUploadDialog" type="success" size="small">
                 <el-icon class="mr-1"><Upload /></el-icon>
                 上传文档
+              </el-button>
+              <!-- 开发环境调试按钮 -->
+              <el-button 
+                v-if="isDev" 
+                @click="testAPIConnection" 
+                type="warning" 
+                plain
+                size="small"
+              >
+                测试API
               </el-button>
             </div>
           </div>
           
-          <div class="kb-description" v-if="knowledgeBase.description">
-            <p>{{ knowledgeBase.description }}</p>
-          </div>
-          
-          <div class="kb-meta">
-            <div class="meta-item">
-              <el-icon><Document /></el-icon>
-              <span>{{ knowledgeBase.document_count }} 个文档</span>
+          <!-- 简化的描述和标签展示 -->
+          <div v-if="knowledgeBase.description || knowledgeBase.tags.length > 0" class="kb-extra-info">
+            <div v-if="knowledgeBase.description" class="kb-description-compact">
+              {{ knowledgeBase.description }}
             </div>
-            <div class="meta-item">
-              <el-icon><View /></el-icon>
-              <span>{{ knowledgeBase.view_count }} 次浏览</span>
+            <div v-if="knowledgeBase.tags.length > 0" class="kb-tags-compact">
+              <el-tag 
+                v-for="(tag, index) in knowledgeBase.tags.slice(0, 5)" 
+                :key="tag" 
+                :type="getTagColor(index)"
+                size="small"
+                class="tag-item-compact"
+              >
+                {{ tag }}
+              </el-tag>
+              <span v-if="knowledgeBase.tags.length > 5" class="more-tags">
+                +{{ knowledgeBase.tags.length - 5 }}
+              </span>
             </div>
-            <div v-if="knowledgeBase.is_public" class="meta-item">
-              <el-icon><Star /></el-icon>
-              <span>{{ knowledgeBase.like_count }} 个点赞</span>
-            </div>
-            <div class="meta-item">
-              <el-icon><Calendar /></el-icon>
-              <span>创建于 {{ formatTime(knowledgeBase.create_time) }}</span>
-            </div>
-          </div>
-          
-          <div v-if="knowledgeBase.tags.length > 0" class="kb-tags">
-            <el-tag 
-              v-for="(tag, index) in knowledgeBase.tags" 
-              :key="tag" 
-              :type="getTagColor(index)"
-              class="tag-item"
-            >
-              {{ tag }}
-            </el-tag>
           </div>
         </div>
       </div>
@@ -99,54 +118,71 @@
         <el-skeleton :rows="5" animated />
       </div>
 
-      <!-- 文档列表 -->
-      <div v-else-if="filteredDocuments.length > 0" class="documents-grid">
-        <el-card 
-          v-for="doc in filteredDocuments" 
-          :key="doc.id" 
-          class="document-card"
-          shadow="hover"
+      <!-- 文档列表 - 表格形式 -->
+      <div v-else-if="filteredDocuments.length > 0" class="documents-table">
+        <el-table 
+          :data="filteredDocuments" 
+          style="width: 100%"
+          :header-cell-style="{ background: '#f8fafc', color: '#374151', fontWeight: '600' }"
+          :row-style="{ cursor: 'pointer' }"
+          @row-click="handleRowClick"
         >
-          <div class="doc-header">
-            <div class="doc-icon">
-              <el-icon><Document /></el-icon>
-            </div>
-            <div class="doc-info">
-              <h3 class="doc-title">{{ doc.filename }}</h3>
-              <p class="doc-meta">
-                <span>{{ formatFileSize(doc.file_size) }}</span>
-                <span class="separator">•</span>
-                <span>{{ doc.file_type.toUpperCase() }}</span>
-                <span class="separator">•</span>
-                <span>{{ formatTime(doc.upload_time) }}</span>
-              </p>
-            </div>
-            <div v-if="knowledgeBase?.is_owner" class="doc-actions">
-              <el-dropdown>
-                <el-button type="text" class="more-btn">
+          <el-table-column width="60">
+            <template #default>
+              <div class="doc-icon-small">
+                <el-icon><Document /></el-icon>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="filename" label="文档名称" min-width="300">
+            <template #default="{ row }">
+              <div class="doc-name-cell">
+                <span class="doc-filename">{{ row.filename }}</span>
+                <div class="doc-meta-row">
+                  <span class="doc-type">{{ row.file_type?.toUpperCase() || 'TXT' }}</span>
+                  <span class="separator">•</span>
+                  <span class="doc-size">{{ formatFileSize(row.file_size || 0) }}</span>
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag 
+                :type="getStatusType(row.status || 'completed')" 
+                size="small"
+              >
+                {{ getStatusText(row.status || 'completed') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="upload_time" label="上传时间" width="180">
+            <template #default="{ row }">
+              <span class="upload-time">{{ formatTime(row.upload_time || row.create_time) }}</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column v-if="knowledgeBase?.is_owner" label="操作" width="80" fixed="right">
+            <template #default="{ row }">
+              <el-dropdown @click.stop>
+                <el-button type="text" class="action-btn">
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="removeDocument(doc)">
+                    <el-dropdown-item @click="removeDocument(row)">
                       <el-icon><Delete /></el-icon>
-                      从知识库移除
+                      移除
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-            </div>
-          </div>
-          
-          <div class="doc-status">
-            <el-tag 
-              :type="getStatusType(doc.status)" 
-              size="small"
-            >
-              {{ getStatusText(doc.status) }}
-            </el-tag>
-          </div>
-        </el-card>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <!-- 空状态 -->
@@ -371,14 +407,16 @@ const editForm = reactive({
 // 标签颜色
 const tagColors = ['primary', 'success', 'info', 'warning', 'danger']
 
+// 开发环境判断
+const isDev = import.meta.env.DEV
+
 // 上传配置 - 使用完整的 API 地址
 const uploadAction = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/documents/upload`
 const uploadHeaders = computed(() => ({
   'Authorization': `Bearer ${getToken()}`
 }))
-const uploadData = computed(() => ({
-  kb_id: route.params.id
-}))
+// 上传文档接口不需要额外参数，文档会自动关联到当前用户
+const uploadData = computed(() => ({}))
 
 // 过滤后的文档列表
 const filteredDocuments = computed(() => {
@@ -423,10 +461,22 @@ const loadDocuments = async () => {
   try {
     documentsLoading.value = true
     const kbId = route.params.id as string
-    documents.value = await KnowledgeBaseAPI.getDocuments(kbId)
+    const result = await KnowledgeBaseAPI.getDocuments(kbId)
+    
+    // 确保结果是数组
+    if (Array.isArray(result)) {
+      documents.value = result
+    } else {
+      console.warn('文档列表API返回了非数组数据:', result)
+      documents.value = []
+    }
+    
+    console.log(`成功加载 ${documents.value.length} 个文档`)
   } catch (error: any) {
     console.error('加载文档列表失败:', error)
-    ElMessage.error('加载文档列表失败')
+    const errorMessage = error.response?.data?.detail || error.message || '加载文档列表失败'
+    ElMessage.error(errorMessage)
+    documents.value = []
   } finally {
     documentsLoading.value = false
   }
@@ -483,8 +533,16 @@ const handleSearch = () => {
   // 搜索逻辑已通过计算属性实现
 }
 
+// 处理表格行点击
+const handleRowClick = (row: any) => {
+  // 可以在这里添加文档预览或详情查看功能
+  console.log('点击文档:', row.filename)
+}
+
 // 上传前检查
 const beforeUpload = (file: File) => {
+  console.log('准备上传文件:', file.name, file.type, file.size)
+  
   const isValidType = ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)
   const isLt50M = file.size / 1024 / 1024 < 50
 
@@ -496,6 +554,13 @@ const beforeUpload = (file: File) => {
     ElMessage.error('文件大小不能超过 50MB!')
     return false
   }
+  
+  // 检查是否有权限上传到此知识库
+  if (!knowledgeBase.value?.is_owner) {
+    ElMessage.error('只有知识库创建者可以上传文档!')
+    return false
+  }
+  
   return true
 }
 
@@ -523,24 +588,35 @@ const onUploadSuccess = async (response: any, file: any) => {
     progress.status = 'success'
   }
   
-  ElMessage.success(`文档 "${file.name}" 上传成功`)
+  console.log('上传响应:', response)
   
-  // 如果上传成功，将文档添加到知识库
-  if (response.document_id) {
+  // 检查响应中是否包含文档ID
+  if (response && response.document_id) {
     try {
       const kbId = route.params.id as string
+      console.log(`正在将文档 ${response.document_id} 添加到知识库 ${kbId}`)
+      
+      // 添加文档到知识库
       await KnowledgeBaseAPI.addDocument(kbId, response.document_id)
-    } catch (error) {
+      console.log('文档成功添加到知识库')
+      
+      ElMessage.success(`文档 "${file.name}" 上传并添加到知识库成功`)
+      
+      // 立即重新加载数据
+      await Promise.all([
+        loadDocuments(), // 重新加载文档列表
+        loadKnowledgeBase() // 重新加载知识库信息（更新文档数量）
+      ])
+      
+    } catch (error: any) {
       console.error('添加文档到知识库失败:', error)
-      ElMessage.warning('文档上传成功，但添加到知识库失败')
+      const errorMessage = error.response?.data?.detail || error.message || '添加到知识库失败'
+      ElMessage.error(`文档上传成功，但添加到知识库失败: ${errorMessage}`)
     }
+  } else {
+    console.error('上传响应中缺少 document_id:', response)
+    ElMessage.warning(`文档 "${file.name}" 上传成功，但响应格式异常，请手动刷新页面`)
   }
-  
-  // 延迟重新加载，让用户看到成功状态
-  setTimeout(() => {
-    loadDocuments() // 重新加载文档列表
-    loadKnowledgeBase() // 重新加载知识库信息（更新文档数量）
-  }, 1000)
 }
 
 // 上传失败
@@ -551,7 +627,21 @@ const onUploadError = (error: any, file: any) => {
   }
   
   console.error('上传失败:', error)
-  ElMessage.error(`文档 "${file.name}" 上传失败`)
+  
+  // 尝试解析错误信息
+  let errorMessage = `文档 "${file.name}" 上传失败`
+  if (error && error.response) {
+    const responseData = error.response.data
+    if (responseData && responseData.detail) {
+      errorMessage += `: ${responseData.detail}`
+    } else if (error.response.status) {
+      errorMessage += `: HTTP ${error.response.status}`
+    }
+  } else if (error && error.message) {
+    errorMessage += `: ${error.message}`
+  }
+  
+  ElMessage.error(errorMessage)
 }
 
 // 打开上传对话框
@@ -613,15 +703,36 @@ const removeDocument = async (doc: any) => {
     ElMessage.error('移除文档失败')
   }
 }
+
+// 测试API连接（仅开发环境）
+const testAPIConnection = async () => {
+  try {
+    const kbId = route.params.id as string
+    console.log('测试API连接，知识库ID:', kbId)
+    
+    // 测试获取知识库信息
+    const kbInfo = await KnowledgeBaseAPI.getById(kbId)
+    console.log('知识库信息:', kbInfo)
+    
+    // 测试获取文档列表
+    const docs = await KnowledgeBaseAPI.getDocuments(kbId)
+    console.log('文档列表:', docs)
+    
+    ElMessage.success(`API连接正常，知识库有 ${docs.length} 个文档`)
+  } catch (error: any) {
+    console.error('API连接测试失败:', error)
+    ElMessage.error('API连接测试失败')
+  }
+}
 </script><style scop
 ed>
 /* 页面头部样式 */
 .page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .header-nav {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .back-btn {
@@ -636,12 +747,12 @@ ed>
   transform: translateX(-2px);
 }
 
-/* 知识库信息卡片 */
+/* 知识库信息卡片 - 紧凑版 */
 .kb-info-card {
   background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #e5e7eb;
 }
 
@@ -651,25 +762,32 @@ ed>
 }
 
 .loading-skeleton {
-  padding: 1rem 0;
+  padding: 0.5rem 0;
 }
 
 .kb-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .kb-title-section {
   flex: 1;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
 .kb-title {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 600;
   color: #1f2937;
-  margin: 0 0 1rem 0;
+  margin: 0;
   line-height: 1.2;
 }
 
@@ -679,75 +797,76 @@ ed>
 
 .kb-badges {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .kb-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 
-.kb-description {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  border-left: 4px solid #667eea;
-}
-
-.dark .kb-description {
-  background: #374151;
-}
-
-.kb-description p {
-  margin: 0;
-  color: #4b5563;
-  line-height: 1.6;
-}
-
-.dark .kb-description p {
-  color: #d1d5db;
-}
-
-.kb-meta {
+/* 紧凑的元信息展示 */
+.kb-meta-compact {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem 0;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.dark .kb-meta {
-  border-color: #374151;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #6b7280;
+  gap: 1rem;
   font-size: 0.875rem;
+  color: #6b7280;
 }
 
-.dark .meta-item {
+.dark .kb-meta-compact {
   color: #9ca3af;
 }
 
-.meta-item .el-icon {
-  color: #667eea;
+.meta-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.kb-tags {
+.meta-item-compact .el-icon {
+  color: #667eea;
+  font-size: 0.875rem;
+}
+
+/* 额外信息区域 */
+.kb-extra-info {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.dark .kb-extra-info {
+  border-color: #374151;
+}
+
+.kb-description-compact {
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+}
+
+.dark .kb-description-compact {
+  color: #9ca3af;
+}
+
+.kb-tags-compact {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  align-items: center;
 }
 
-.tag-item {
+.tag-item-compact {
+  font-weight: 500;
+}
+
+.more-tags {
+  font-size: 0.75rem;
+  color: #6b7280;
   font-weight: 500;
 }
 
@@ -799,99 +918,150 @@ ed>
   width: 300px;
 }
 
-/* 文档网格 */
-.documents-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1.5rem;
-}
-
-.document-card {
-  transition: all 0.3s ease;
-  border-radius: 12px;
+/* 文档表格样式 */
+.documents-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
   border: 1px solid #e5e7eb;
 }
 
-.dark .document-card {
+.dark .documents-table {
+  background: #1f2937;
   border-color: #374151;
-  background: #374151;
 }
 
-.document-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: #667eea;
+.documents-table :deep(.el-table) {
+  background: transparent;
 }
 
-.doc-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
+.documents-table :deep(.el-table__body-wrapper) {
+  background: transparent;
 }
 
-.doc-icon {
-  width: 48px;
-  height: 48px;
+.documents-table :deep(.el-table tr) {
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.documents-table :deep(.el-table tr:hover) {
+  background-color: rgba(102, 126, 234, 0.05) !important;
+}
+
+.dark .documents-table :deep(.el-table tr:hover) {
+  background-color: rgba(102, 126, 234, 0.1) !important;
+}
+
+.documents-table :deep(.el-table td) {
+  border-bottom: 1px solid #f3f4f6;
+  padding: 12px 16px;
+}
+
+.dark .documents-table :deep(.el-table td) {
+  border-bottom-color: #374151;
+}
+
+.documents-table :deep(.el-table th) {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 16px;
+}
+
+.dark .documents-table :deep(.el-table th) {
+  border-bottom-color: #4b5563;
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+/* 文档图标 */
+.doc-icon-small {
+  width: 32px;
+  height: 32px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-}
-
-.doc-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.doc-title {
   font-size: 1rem;
-  font-weight: 600;
+}
+
+/* 文档名称单元格 */
+.doc-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.doc-filename {
+  font-weight: 500;
   color: #1f2937;
-  margin: 0 0 0.5rem 0;
   line-height: 1.4;
   word-break: break-all;
 }
 
-.dark .doc-title {
+.dark .doc-filename {
   color: #f9fafb;
 }
 
-.doc-meta {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin: 0;
+.doc-meta-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
-.dark .doc-meta {
+.dark .doc-meta-row {
   color: #9ca3af;
+}
+
+.doc-type {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.dark .doc-type {
+  background: #4b5563;
+  color: #d1d5db;
+}
+
+.doc-size {
+  font-weight: 500;
 }
 
 .separator {
   color: #d1d5db;
 }
 
-.doc-actions {
-  flex-shrink: 0;
+.upload-time {
+  font-size: 0.875rem;
+  color: #6b7280;
 }
 
-.more-btn {
-  min-width: 32px !important;
-  height: 32px !important;
+.dark .upload-time {
+  color: #9ca3af;
+}
+
+.action-btn {
+  min-width: 28px !important;
+  height: 28px !important;
   padding: 0 !important;
-  border-radius: 6px;
+  border-radius: 4px;
+  color: #6b7280;
 }
 
-.doc-status {
-  display: flex;
-  justify-content: flex-end;
+.action-btn:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.dark .action-btn:hover {
+  background-color: #4b5563;
+  color: #f3f4f6;
 }
 
 /* 空状态样式 */
@@ -1178,6 +1348,12 @@ ed>
     gap: 1rem;
   }
   
+  .title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
   .kb-actions {
     width: 100%;
     justify-content: flex-start;
@@ -1198,17 +1374,27 @@ ed>
     width: 100%;
   }
   
-  .documents-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .kb-meta {
+  .kb-meta-compact {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   
   .kb-badges {
     margin-top: 0.5rem;
+  }
+  
+  /* 表格在移动端的优化 */
+  .documents-table :deep(.el-table td),
+  .documents-table :deep(.el-table th) {
+    padding: 8px 12px;
+  }
+  
+  .doc-filename {
+    font-size: 0.875rem;
+  }
+  
+  .doc-meta-row {
+    font-size: 0.7rem;
   }
   
   .upload-dialog :deep(.el-dialog) {
