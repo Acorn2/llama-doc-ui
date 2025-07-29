@@ -338,61 +338,32 @@ const tagsToString = (tags: string[]) => {
         </template>
 
         <div class="kb-card-content">
-          <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
-            {{ kb.description || '暂无描述' }}
-          </p>
+          <!-- 描述 -->
+          <div class="kb-description">
+            <p class="description-text">
+              {{ kb.description || '暂无描述' }}
+            </p>
+          </div>
           
           <!-- 标签 -->
-          <div v-if="kb.tags.length > 0" class="flex flex-wrap gap-1">
-            <el-tag v-for="tag in kb.tags.slice(0, 3)" :key="tag" size="small" type="info">
-              {{ tag }}
-            </el-tag>
-            <el-tag v-if="kb.tags.length > 3" size="small" type="info">
-              +{{ kb.tags.length - 3 }}
-            </el-tag>
-          </div>
-          
-          <div class="kb-stats">
-            <div class="stat-item">
-              <div class="stat-icon">
-                <el-icon><Document /></el-icon>
-              </div>
-              <div class="stat-content">
-                <span class="stat-value">{{ kb.document_count }}</span>
-                <span class="stat-label">文档</span>
-              </div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-icon">
-                <el-icon><View /></el-icon>
-              </div>
-              <div class="stat-content">
-                <span class="stat-value">{{ kb.view_count }}</span>
-                <span class="stat-label">浏览</span>
-              </div>
-            </div>
-            <div class="stat-item" v-if="kb.is_public">
-              <div class="stat-icon">
-                <el-icon><Star /></el-icon>
-              </div>
-              <div class="stat-content">
-                <span class="stat-value">{{ kb.like_count }}</span>
-                <span class="stat-label">点赞</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-gray-500">创建时间</span>
-            <span class="text-gray-700 dark:text-gray-300">{{ formatTime(kb.create_time) }}</span>
+          <div class="kb-tags">
+            <template v-if="kb.tags.length > 0">
+              <el-tag v-for="tag in kb.tags.slice(0, 3)" :key="tag" size="small" type="info">
+                {{ tag }}
+              </el-tag>
+              <el-tag v-if="kb.tags.length > 3" size="small" type="info">
+                +{{ kb.tags.length - 3 }}
+              </el-tag>
+            </template>
           </div>
 
-          <div class="pt-4 space-y-2">
-            <el-button type="primary" size="default" class="w-full enter-kb-btn" @click="enterKnowledgeBase(kb)">
+          <!-- 操作按钮 -->
+          <div class="kb-actions">
+            <el-button type="primary" size="default" class="action-btn enter-kb-btn" @click="enterKnowledgeBase(kb)">
               <el-icon class="mr-1"><View /></el-icon>
               进入知识库
             </el-button>
-            <el-button type="success" size="default" class="w-full chat-kb-btn" @click="startChat(kb)">
+            <el-button type="success" size="default" class="action-btn chat-kb-btn" @click="startChat(kb)">
               <el-icon class="mr-1"><ChatDotRound /></el-icon>
               开始聊天
             </el-button>
@@ -897,11 +868,21 @@ const tagsToString = (tags: string[]) => {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   overflow: hidden;
+  height: 100%; /* 确保所有卡片高度一致 */
+  display: flex;
+  flex-direction: column;
 }
 
 .dark .kb-card {
   border-color: #374151;
   background: #1f2937;
+}
+
+.kb-card :deep(.el-card__body) {
+  padding: 1.25rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .kb-card:hover {
@@ -913,68 +894,6 @@ const tagsToString = (tags: string[]) => {
 .dark .kb-card:hover {
   border-color: #667eea;
   box-shadow: 0 12px 32px -8px rgba(102, 126, 234, 0.3);
-}
-
-/* 知识库统计样式 */
-.kb-stats {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin: 0.75rem 0;
-}
-
-.dark .kb-stats {
-  background: #374151;
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-  justify-content: center;
-}
-
-.stat-icon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 6px;
-  color: #667eea;
-  font-size: 0.875rem;
-}
-
-.stat-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-value {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #1f2937;
-  line-height: 1;
-}
-
-.dark .stat-value {
-  color: #f9fafb;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  line-height: 1;
-}
-
-.dark .stat-label {
-  color: #9ca3af;
 }
 
 /* 卡片按钮优化 */
@@ -999,7 +918,6 @@ const tagsToString = (tags: string[]) => {
 }
 
 .enter-kb-btn {
-  height: 40px !important;
   font-weight: 500;
   border-radius: 8px;
   transition: all 0.3s ease;
@@ -1012,7 +930,6 @@ const tagsToString = (tags: string[]) => {
 }
 
 .chat-kb-btn {
-  height: 40px !important;
   font-weight: 500;
   border-radius: 8px;
   transition: all 0.3s ease;
@@ -1028,12 +945,71 @@ const tagsToString = (tags: string[]) => {
 .kb-card-content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
   padding: 0.5rem 0;
+  min-height: 200px; /* 减小卡片高度 */
 }
 
 .kb-card-content > * {
   margin: 0;
+}
+
+/* 描述区域 */
+.kb-description {
+  flex: 1; /* 让描述区域占据剩余空间 */
+  display: flex;
+  align-items: flex-start;
+}
+
+.description-text {
+  margin: 0;
+  line-height: 1.6;
+  color: #6b7280;
+  font-size: 0.875rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.dark .description-text {
+  color: #9ca3af;
+}
+
+/* 标签区域 */
+.kb-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+  align-content: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.kb-tags .el-tag {
+  border-radius: 12px;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  font-weight: 500;
+}
+
+/* 操作按钮区域 */
+.kb-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: auto; /* 推送到底部 */
+}
+
+.action-btn {
+  height: 40px !important;
+  flex: 1; /* 让按钮等宽 */
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 卡片头部样式 */
@@ -1047,9 +1023,17 @@ const tagsToString = (tags: string[]) => {
   line-height: 1.4;
 }
 
+/* 工具类 */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1408,12 +1392,19 @@ const tagsToString = (tags: string[]) => {
     max-width: 320px;
   }
   
-  .kb-stats {
-    gap: 0.5rem;
+  .kb-card-content {
+    min-height: 180px;
+    gap: 1rem;
   }
   
-  .stat-item {
-    gap: 0.25rem;
+  .kb-actions {
+    gap: 0.5rem;
+    flex-direction: column;
+  }
+  
+  .action-btn {
+    height: 38px !important;
+    font-size: 0.875rem;
   }
 }
 

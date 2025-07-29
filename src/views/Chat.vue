@@ -262,14 +262,24 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 // 格式化时间
 const formatTime = (timeStr: string) => {
+  if (!timeStr) return '刚刚'
+  
   const date = new Date(timeStr)
+  // 检查日期是否有效
+  if (isNaN(date.getTime())) return '刚刚'
+  
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   
   if (diff < 60000) return '刚刚'
   if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  return date.toLocaleDateString()
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
+  
+  return date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 // 格式化消息时间
@@ -293,21 +303,20 @@ const goBackToKnowledgeBase = () => {
       <!-- 侧边栏头部 -->
       <div class="sidebar-header">
         <div v-if="!sidebarCollapsed" class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center space-x-3">
             <el-button @click="goBackToKnowledgeBase" type="text" size="small" class="back-btn">
               <el-icon><ArrowLeft /></el-icon>
             </el-button>
-            <div>
-              <h2 class="sidebar-title">对话历史</h2>
-              <p v-if="knowledgeBase" class="kb-name">{{ knowledgeBase.name }}</p>
+            <div class="header-info">
+              <h2 class="sidebar-title">对话</h2>
             </div>
           </div>
-          <el-button @click="sidebarCollapsed = true" type="text" size="small">
+          <el-button @click="sidebarCollapsed = true" type="text" size="small" class="collapse-btn">
             <el-icon><MoreFilled /></el-icon>
           </el-button>
         </div>
         <div v-else class="flex justify-center">
-          <el-button @click="sidebarCollapsed = false" type="text" size="small">
+          <el-button @click="sidebarCollapsed = false" type="text" size="small" class="expand-btn">
             <el-icon><ChatDotRound /></el-icon>
           </el-button>
         </div>
@@ -319,8 +328,9 @@ const goBackToKnowledgeBase = () => {
           <el-button 
             @click="createNewConversation" 
             type="primary" 
-            class="w-full"
+            class="new-chat-btn"
             :disabled="!knowledgeBase"
+            plain
           >
             <el-icon class="mr-2"><Plus /></el-icon>
             新建对话
@@ -346,9 +356,11 @@ const goBackToKnowledgeBase = () => {
           
           <div v-else-if="filteredConversations.length === 0" class="empty-state">
             <div class="empty-content">
-              <el-icon class="empty-icon"><ChatDotRound /></el-icon>
-              <p class="empty-text">暂无对话记录</p>
-              <p class="empty-hint">创建新对话开始聊天</p>
+              <div class="empty-icon">
+                <el-icon><ChatDotRound /></el-icon>
+              </div>
+              <p class="empty-text">暂无对话</p>
+              <p class="empty-hint">点击上方按钮开始新对话</p>
             </div>
           </div>
           
@@ -361,7 +373,6 @@ const goBackToKnowledgeBase = () => {
             >
               <div class="conversation-content">
                 <div class="conversation-title">{{ conversation.title }}</div>
-                <div class="conversation-time">{{ formatTime(conversation.update_time) }}</div>
               </div>
               <el-dropdown @click.stop>
                 <el-button type="text" size="small" class="conversation-menu">
@@ -495,30 +506,40 @@ const goBackToKnowledgeBase = () => {
 
       <!-- 输入区域 -->
       <div class="chat-input">
-        <div class="input-container">
-          <el-input
-            v-model="currentMessage"
-            type="textarea"
-            :rows="1"
-            :autosize="{ minRows: 1, maxRows: 4 }"
-            placeholder="输入您的问题..."
-            @keydown="handleKeydown"
-            :disabled="!knowledgeBase || loading"
-            class="message-input"
-          />
-          <el-button 
-            type="primary" 
-            @click="sendMessage"
-            :disabled="!canSendMessage"
-            class="send-button"
-          >
-            <el-icon><Promotion /></el-icon>
-          </el-button>
-        </div>
-        
-        <div class="input-footer">
-          <span class="input-hint">按 Enter 发送，Shift + Enter 换行</span>
-          <span class="char-count">{{ currentMessage.length }}/2000</span>
+        <div class="input-wrapper">
+          <div class="input-container">
+            <div class="input-box">
+              <el-input
+                v-model="currentMessage"
+                type="textarea"
+                :rows="1"
+                :autosize="{ minRows: 1, maxRows: 4 }"
+                placeholder="输入您的问题..."
+                @keydown="handleKeydown"
+                :disabled="!knowledgeBase || loading"
+                class="message-input"
+              />
+              <el-button 
+                type="primary" 
+                @click="sendMessage"
+                :disabled="!canSendMessage"
+                class="send-button"
+                :loading="loading"
+              >
+                <el-icon v-if="!loading"><Promotion /></el-icon>
+              </el-button>
+            </div>
+            
+            <div class="input-footer">
+              <span class="input-hint">
+                <el-icon class="hint-icon"><ChatDotRound /></el-icon>
+                按 Enter 发送，Shift + Enter 换行
+              </span>
+              <span class="char-count" :class="{ 'char-limit': currentMessage.length > 1800 }">
+                {{ currentMessage.length }}/2000
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -543,63 +564,96 @@ const goBackToKnowledgeBase = () => {
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
 }
 
 .dark .sidebar {
   background: #1f2937;
   border-color: #374151;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-header {
-  padding: 1rem;
+  padding: 1.25rem;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .dark .sidebar-header {
   border-color: #374151;
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+}
+
+.header-info {
+  flex: 1;
 }
 
 .sidebar-title {
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #1f2937;
   margin: 0;
+  letter-spacing: -0.025em;
 }
 
 .dark .sidebar-title {
   color: #f9fafb;
 }
 
-.kb-name {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.dark .kb-name {
-  color: #9ca3af;
-}
-
 .back-btn {
-  min-width: 28px !important;
-  height: 28px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.back-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+}
+
+.dark .back-btn {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.dark .back-btn:hover {
+  background: rgba(102, 126, 234, 0.3);
+}
+
+.collapse-btn,
+.expand-btn {
+  min-width: 32px !important;
+  height: 32px !important;
   padding: 0 !important;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
   transition: all 0.3s ease;
+  color: #6b7280;
 }
 
-.back-btn:hover {
+.collapse-btn:hover,
+.expand-btn:hover {
   background-color: #f3f4f6;
+  color: #374151;
   transform: scale(1.05);
 }
 
-.dark .back-btn:hover {
+.dark .collapse-btn:hover,
+.dark .expand-btn:hover {
   background-color: #4b5563;
+  color: #f3f4f6;
 }
 
 .loading-icon {
@@ -646,7 +700,7 @@ const goBackToKnowledgeBase = () => {
 
 /* 对话操作 */
 .conversation-actions {
-  padding: 0 1rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
 }
@@ -655,15 +709,105 @@ const goBackToKnowledgeBase = () => {
   border-color: #374151;
 }
 
+.new-chat-btn {
+  width: 100%;
+  height: 44px !important;
+  border-radius: 12px !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: 2px solid #667eea !important;
+  color: #667eea !important;
+  background: transparent !important;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.new-chat-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.new-chat-btn:hover::before {
+  left: 100%;
+}
+
+.new-chat-btn:hover {
+  background: #667eea !important;
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.new-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.new-chat-btn:disabled:hover {
+  background: transparent !important;
+  color: #667eea !important;
+}
+
+.dark .new-chat-btn {
+  border-color: #667eea !important;
+  color: #667eea !important;
+}
+
+.dark .new-chat-btn:hover {
+  background: #667eea !important;
+  color: white !important;
+}
+
 /* 对话搜索 */
 .conversation-search {
-  padding: 1rem;
+  padding: 0 1rem 1rem;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
 }
 
 .dark .conversation-search {
   border-color: #374151;
+}
+
+.conversation-search :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+  background: #f8fafc;
+}
+
+.conversation-search :deep(.el-input__wrapper:hover) {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+}
+
+.conversation-search :deep(.el-input__wrapper.is-focus) {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: white;
+}
+
+.dark .conversation-search :deep(.el-input__wrapper) {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+.dark .conversation-search :deep(.el-input__wrapper:hover) {
+  border-color: #6b7280;
+  background: #4b5563;
+}
+
+.dark .conversation-search :deep(.el-input__wrapper.is-focus) {
+  background: #374151;
 }
 
 /* 对话列表 */
@@ -692,30 +836,44 @@ const goBackToKnowledgeBase = () => {
 }
 
 .empty-icon {
-  font-size: 3rem;
-  color: #9ca3af;
-  margin-bottom: 1rem;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  color: #667eea;
+  font-size: 1.5rem;
+  border: 2px solid rgba(102, 126, 234, 0.1);
+}
+
+.dark .empty-icon {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(102, 126, 234, 0.1) 100%);
+  border-color: rgba(102, 126, 234, 0.2);
 }
 
 .empty-text {
   font-size: 1rem;
-  font-weight: 500;
-  color: #6b7280;
+  font-weight: 600;
+  color: #1f2937;
   margin: 0 0 0.5rem 0;
 }
 
 .dark .empty-text {
-  color: #9ca3af;
+  color: #f9fafb;
 }
 
 .empty-hint {
   font-size: 0.875rem;
-  color: #9ca3af;
+  color: #6b7280;
   margin: 0;
+  line-height: 1.5;
 }
 
 .dark .empty-hint {
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .conversation-items {
@@ -727,55 +885,76 @@ const goBackToKnowledgeBase = () => {
 .conversation-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.3s ease;
   border-left: 3px solid transparent;
+  border-radius: 0 12px 12px 0;
+  margin: 0 0.5rem 0.5rem 0;
+  position: relative;
+  min-height: 52px;
+}
+
+.conversation-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border-radius: 0 12px 12px 0;
+  transition: all 0.3s ease;
+  z-index: -1;
+}
+
+.conversation-item:hover::before {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(102, 126, 234, 0.04) 100%);
 }
 
 .conversation-item:hover {
-  background-color: #f3f4f6;
+  transform: translateX(6px);
 }
 
-.dark .conversation-item:hover {
-  background-color: #374151;
+.dark .conversation-item:hover::before {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(102, 126, 234, 0.08) 100%);
 }
 
 .conversation-item.active {
-  background-color: rgba(102, 126, 234, 0.1);
   border-left-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(102, 126, 234, 0.06) 100%);
+  transform: translateX(6px);
 }
 
 .dark .conversation-item.active {
-  background-color: rgba(102, 126, 234, 0.2);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.25) 0%, rgba(102, 126, 234, 0.12) 100%);
 }
 
 .conversation-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .conversation-title {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #1f2937;
-  margin-bottom: 0.25rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .dark .conversation-title {
   color: #f9fafb;
 }
 
-.conversation-time {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-.dark .conversation-time {
-  color: #9ca3af;
+.conversation-item.active .conversation-title {
+  color: #667eea;
+  font-weight: 700;
 }
 
 .conversation-menu {
@@ -1126,53 +1305,189 @@ const goBackToKnowledgeBase = () => {
 
 /* 输入区域 */
 .chat-input {
-  padding: 1rem 1.5rem;
+  padding: 1.5rem;
   border-top: 1px solid #e5e7eb;
-  background: white;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   flex-shrink: 0;
 }
 
 .dark .chat-input {
   border-color: #374151;
-  background: #1f2937;
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+}
+
+.input-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .input-container {
   display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.input-box {
+  display: flex;
   gap: 0.75rem;
   align-items: flex-end;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 0.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.input-box:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.input-box:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1), 0 6px 20px rgba(102, 126, 234, 0.15);
+}
+
+.dark .input-box {
+  background: #374151;
+  border-color: #4b5563;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.dark .input-box:hover {
+  border-color: #6b7280;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.dark .input-box:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2), 0 6px 20px rgba(102, 126, 234, 0.25);
 }
 
 .message-input {
   flex: 1;
 }
 
+.message-input :deep(.el-textarea__inner) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  resize: none;
+  color: #1f2937;
+}
+
+.dark .message-input :deep(.el-textarea__inner) {
+  color: #f9fafb;
+}
+
+.message-input :deep(.el-textarea__inner::placeholder) {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.dark .message-input :deep(.el-textarea__inner::placeholder) {
+  color: #6b7280;
+}
+
 .send-button {
   flex-shrink: 0;
-  height: 40px;
-  width: 40px;
-  border-radius: 8px;
+  height: 44px !important;
+  width: 44px !important;
+  border-radius: 12px !important;
+  font-size: 1.125rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.send-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.send-button:hover::before {
+  left: 100%;
+}
+
+.send-button:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  background: #d1d5db !important;
+}
+
+.send-button:disabled::before {
+  display: none;
+}
+
+.dark .send-button:disabled {
+  background: #4b5563 !important;
 }
 
 .input-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: #9ca3af;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  padding: 0 0.5rem;
 }
 
 .dark .input-footer {
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .input-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   flex: 1;
+}
+
+.hint-icon {
+  color: #667eea;
+  font-size: 0.875rem;
 }
 
 .char-count {
   flex-shrink: 0;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  transition: all 0.3s ease;
+}
+
+.char-count.char-limit {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.dark .char-count {
+  background: rgba(102, 126, 234, 0.2);
+}
+
+.dark .char-count.char-limit {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 /* 滚动条样式 */
@@ -1228,6 +1543,25 @@ const goBackToKnowledgeBase = () => {
   
   .chat-input {
     padding: 1rem;
+  }
+  
+  .input-box {
+    padding: 0.5rem;
+    border-radius: 12px;
+  }
+  
+  .send-button {
+    height: 38px !important;
+    width: 38px !important;
+  }
+  
+  .input-footer {
+    font-size: 0.75rem;
+    gap: 0.5rem;
+  }
+  
+  .input-hint .hint-icon {
+    display: none;
   }
 }
 
