@@ -47,25 +47,34 @@
               </div>
             </div>
             
-            <div v-if="knowledgeBase.is_owner" class="kb-actions">
-              <el-button @click="showEditDialog = true" type="primary" plain size="small">
-                <el-icon class="mr-1"><Edit /></el-icon>
-                编辑
+            <div class="kb-actions">
+              <!-- 聊天按钮 - 所有用户都可以使用 -->
+              <el-button @click="startChat" type="success" size="small">
+                <el-icon class="mr-1"><ChatDotRound /></el-icon>
+                开始聊天
               </el-button>
-              <el-button @click="openUploadDialog" type="success" size="small">
-                <el-icon class="mr-1"><Upload /></el-icon>
-                上传文档
-              </el-button>
-              <!-- 开发环境调试按钮 -->
-              <el-button 
-                v-if="isDev" 
-                @click="testAPIConnection" 
-                type="warning" 
-                plain
-                size="small"
-              >
-                测试API
-              </el-button>
+              
+              <!-- 管理按钮 - 仅所有者可见 -->
+              <template v-if="knowledgeBase.is_owner">
+                <el-button @click="showEditDialog = true" type="primary" plain size="small">
+                  <el-icon class="mr-1"><Edit /></el-icon>
+                  编辑
+                </el-button>
+                <el-button @click="openUploadDialog" type="success" plain size="small">
+                  <el-icon class="mr-1"><Upload /></el-icon>
+                  上传文档
+                </el-button>
+                <!-- 开发环境调试按钮 -->
+                <el-button 
+                  v-if="isDev" 
+                  @click="testAPIConnection" 
+                  type="warning" 
+                  plain
+                  size="small"
+                >
+                  测试API
+                </el-button>
+              </template>
             </div>
           </div>
           
@@ -363,7 +372,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   ArrowLeft, Edit, Upload, Document, View, Star, Calendar, 
   Plus, Search, MoreFilled, Delete, FolderOpened, UploadFilled,
-  Lightning, Check
+  Lightning, Check, ChatDotRound
 } from '@element-plus/icons-vue'
 import { KnowledgeBaseAPI, type KnowledgeBase } from '@/api/modules/knowledge-base'
 import { DocumentAPI } from '@/api/modules/document'
@@ -485,6 +494,26 @@ const loadDocuments = async () => {
 // 返回上一页
 const goBack = () => {
   router.push('/knowledge-base')
+}
+
+// 开始聊天
+const startChat = () => {
+  if (!knowledgeBase.value) {
+    ElMessage.warning('知识库信息缺失')
+    return
+  }
+  
+  // 记录聊天访问行为
+  KnowledgeBaseAPI.recordAccess(knowledgeBase.value.id, {
+    access_type: 'chat',
+    access_metadata: {
+      source: 'knowledge_base_detail',
+      page: 'knowledge_base_detail'
+    }
+  }).catch(console.error)
+  
+  // 跳转到对话页面
+  router.push(`/chat/${knowledgeBase.value.id}`)
 }
 
 // 格式化时间

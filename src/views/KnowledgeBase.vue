@@ -193,6 +193,21 @@ const enterKnowledgeBase = (kb: KnowledgeBase) => {
   router.push(`/knowledge-bases/${kb.id}`)
 }
 
+// 开始聊天
+const startChat = (kb: KnowledgeBase) => {
+  // 记录聊天访问行为
+  KnowledgeBaseAPI.recordAccess(kb.id, {
+    access_type: 'chat',
+    access_metadata: {
+      source: 'knowledge_base_list',
+      page: 'knowledge_base_management'
+    }
+  }).catch(console.error)
+  
+  // 跳转到对话页面
+  router.push(`/chat/${kb.id}`)
+}
+
 // 格式化时间显示
 const formatTime = (timeStr: string) => {
   return new Date(timeStr).toLocaleString('zh-CN')
@@ -372,10 +387,14 @@ const tagsToString = (tags: string[]) => {
             <span class="text-gray-700 dark:text-gray-300">{{ formatTime(kb.create_time) }}</span>
           </div>
 
-          <div class="pt-4">
+          <div class="pt-4 space-y-2">
             <el-button type="primary" size="default" class="w-full enter-kb-btn" @click="enterKnowledgeBase(kb)">
               <el-icon class="mr-1"><View /></el-icon>
               进入知识库
+            </el-button>
+            <el-button type="success" size="default" class="w-full chat-kb-btn" @click="startChat(kb)">
+              <el-icon class="mr-1"><ChatDotRound /></el-icon>
+              开始聊天
             </el-button>
           </div>
         </div>
@@ -990,6 +1009,19 @@ const tagsToString = (tags: string[]) => {
 .enter-kb-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.chat-kb-btn {
+  height: 40px !important;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.chat-kb-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
 }
 
 /* 卡片内容布局优化 */

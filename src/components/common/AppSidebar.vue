@@ -44,12 +44,6 @@ const menuItems = [
     path: '/knowledge-base/public'
   },
   {
-    name: 'Chat',
-    title: '智能对话',
-    icon: 'ChatDotRound',
-    path: '/chat'
-  },
-  {
     name: 'Agent',
     title: 'AI分析',
     icon: 'MagicStick', 

@@ -90,12 +90,11 @@ export const routes: RouteRecordRaw[] = [
         }
       },
       {
-        path: '/chat',
+        path: '/chat/:kbId',
         name: 'Chat',
         component: () => import('@/views/Chat.vue'),
         meta: {
           title: '智能对话',
-          icon: 'ChatDotRound',
           keepAlive: false // 聊天页面不缓存，保持实时性
         }
       },
