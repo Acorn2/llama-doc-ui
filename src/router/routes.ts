@@ -61,6 +61,15 @@ export const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: '/knowledge-bases/:id',
+        name: 'KnowledgeBaseDetail',
+        component: () => import('@/views/KnowledgeBaseDetail.vue'),
+        meta: {
+          title: '知识库详情',
+          keepAlive: false
+        }
+      },
+      {
         path: '/knowledge-base/public',
         name: 'PublicKnowledgeBase',
         component: () => import('@/views/PublicKnowledgeBase.vue'),

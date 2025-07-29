@@ -189,7 +189,7 @@ const enterKnowledgeBase = (kb: KnowledgeBase) => {
     }
   }).catch(console.error)
   
-  // 跳转到知识库详情页面（需要创建对应路由）
+  // 跳转到知识库详情页面
   router.push(`/knowledge-bases/${kb.id}`)
 }
 
