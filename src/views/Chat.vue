@@ -95,16 +95,11 @@ const loadConversations = async () => {
   
   try {
     conversationLoading.value = true
-    console.log('开始加载对话列表，知识库ID:', kbId.value)
     
     const result = await ConversationAPI.getList({
       kb_id: kbId.value,
       limit: 50
     })
-    
-    console.log('API返回的对话数据:', result)
-    console.log('对话数据类型:', typeof result)
-    console.log('是否为数组:', Array.isArray(result))
     
     // 处理不同的响应格式
     if (Array.isArray(result)) {
@@ -114,12 +109,8 @@ const loadConversations = async () => {
     } else if (result && result.conversations && Array.isArray(result.conversations)) {
       conversations.value = result.conversations
     } else {
-      console.warn('未知的对话数据格式:', result)
       conversations.value = []
     }
-    
-    console.log('设置后的conversations.value:', conversations.value)
-    console.log('conversations.value长度:', conversations.value.length)
     
   } catch (error: any) {
     console.error('加载对话列表失败:', error)
@@ -132,36 +123,16 @@ const loadConversations = async () => {
 // 加载消息列表
 const loadMessages = async () => {
   if (!selectedConversation.value || !selectedConversation.value.id) {
-    console.warn('loadMessages: 没有选中的对话或对话ID为空')
     return
   }
   
   try {
-    console.log('开始加载消息，对话ID:', selectedConversation.value.id)
     const loadedMessages = await ConversationAPI.getMessages(selectedConversation.value.id)
-    console.log('API返回的原始消息数据:', loadedMessages)
-    console.log('消息数据类型:', typeof loadedMessages)
-    console.log('是否为数组:', Array.isArray(loadedMessages))
-    console.log('加载到的消息数量:', loadedMessages.length)
-    
-    // 验证消息数据结构
-    if (loadedMessages.length > 0) {
-      console.log('第一条消息示例:', loadedMessages[0])
-      console.log('消息字段检查:', {
-        hasId: !!loadedMessages[0].id,
-        hasRole: !!loadedMessages[0].role,
-        hasContent: !!loadedMessages[0].content,
-        hasCreateTime: !!loadedMessages[0].create_time
-      })
-    }
     
     messages.value = loadedMessages
-    console.log('设置后的messages.value:', messages.value)
-    console.log('messages.value长度:', messages.value.length)
     
     // 强制触发响应式更新
     nextTick(() => {
-      console.log('nextTick后的messages.value长度:', messages.value.length)
       scrollToBottom()
     })
   } catch (error: any) {
@@ -201,7 +172,6 @@ const sendMessage = async () => {
   
   // 防止重复调用
   if (loading.value) {
-    console.log('正在发送消息，忽略重复调用')
     return
   }
   
@@ -225,18 +195,13 @@ const sendMessage = async () => {
     // 如果没有选中对话，先创建一个
     let conversationId = selectedConversation.value?.id
     if (!conversationId) {
-      console.log('没有选中对话，开始创建新对话...')
-      
       const newConversation = await ConversationAPI.create({
         kb_id: kbId.value,
         title: messageContent.slice(0, 20) + '...'
       })
       
-      console.log('创建新对话成功:', newConversation)
-      
       // 验证新对话的ID
       if (!newConversation || !newConversation.id) {
-        console.error('创建对话失败：返回的对话对象无效', newConversation)
         throw new Error('创建对话失败')
       }
       
@@ -246,15 +211,9 @@ const sendMessage = async () => {
       conversationId = newConversation.id
       userMessage.conversation_id = conversationId
       
-      console.log('新对话ID:', conversationId)
-      console.log('当前对话列表长度:', conversations.value.length)
-      
       // 强制触发响应式更新
       nextTick(() => {
-        console.log('对话列表已更新，当前选中对话:', selectedConversation.value?.title)
       })
-    } else {
-      console.log('使用现有对话ID:', conversationId)
     }
     
     // 创建AI回复消息占位符
@@ -268,19 +227,9 @@ const sendMessage = async () => {
     messages.value.push(aiMessage)
     scrollToBottom()
     
-    console.log('已添加AI消息占位符，当前消息数量:', messages.value.length)
-    
     // 使用流式对话接口
-    console.log('准备调用流式对话接口，参数:', {
-      conversation_id: conversationId,
-      kb_id: kbId.value,
-      message: messageContent,
-      use_agent: false
-    })
-    
     // 确保conversationId不为空
     if (!conversationId) {
-      console.error('conversationId为空，无法调用流式对话接口')
       throw new Error('对话ID缺失')
     }
     
@@ -318,7 +267,6 @@ const sendMessage = async () => {
             
             // 检查是否是结束标志
             if (data === '[DONE]') {
-              console.log('流式对话结束')
               break
             }
             
@@ -327,12 +275,10 @@ const sendMessage = async () => {
             
             try {
               const parsed = JSON.parse(data)
-              console.log('收到流式数据:', parsed)
               
               // 确保AI消息仍然存在于消息列表中
               const aiMessageIndex = messages.value.findIndex(msg => msg.id === aiMessage.id)
               if (aiMessageIndex === -1) {
-                console.warn('AI消息在流式处理过程中丢失，重新添加')
                 messages.value.push(aiMessage)
               }
               
@@ -378,7 +324,7 @@ const sendMessage = async () => {
               }
               
             } catch (parseError) {
-              console.warn('解析流式数据失败:', parseError, 'data:', data)
+              // 解析失败，跳过这条数据
             }
           }
         }
@@ -405,7 +351,7 @@ const sendMessage = async () => {
                 })
               }
             } catch (parseError) {
-              console.warn('解析缓冲区数据失败:', parseError)
+              // 解析失败，跳过
             }
           }
         }
@@ -873,15 +819,6 @@ const isDev = import.meta.env.DEV
           </div>
         </div>
 
-        <!-- 调试信息 (开发环境) -->
-        <div v-if="isDev" class="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px; border-radius: 5px; font-size: 12px;">
-          <p>调试信息:</p>
-          <p>messages.length: {{ messages.length }}</p>
-          <p>selectedConversation: {{ selectedConversation?.id }}</p>
-          <p>knowledgeBase: {{ knowledgeBase?.name }}</p>
-          <p>loading: {{ loading }}</p>
-        </div>
-
         <!-- 消息列表 -->
         <div v-if="messages.length > 0" class="messages-list">
           <div 
@@ -898,28 +835,25 @@ const isDev = import.meta.env.DEV
                 <div v-if="message.role === 'user'" class="user-message">
                   {{ message.content }}
                 </div>
-                <MarkdownRenderer v-else :content="message.content" />
+                <!-- AI消息：如果有内容则渲染Markdown，否则显示加载状态 -->
+                <div v-else-if="message.content.trim()" class="ai-message">
+                  <MarkdownRenderer :content="message.content" />
+                </div>
+                <!-- AI消息加载状态 -->
+                <div v-else class="typing-indicator">
+                  <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span class="typing-text">AI正在回复...</span>
+                </div>
               </div>
-              <div class="message-time">{{ formatMessageTime(message.create_time) }}</div>
+              <div v-if="message.content.trim()" class="message-time">{{ formatMessageTime(message.create_time) }}</div>
             </div>
           </div>
 
-          <!-- AI回复加载状态 -->
-          <div v-if="loading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content" class="message-item assistant">
-            <div class="message-avatar">
-              <el-icon><Service /></el-icon>
-            </div>
-            <div class="message-content">
-              <div class="typing-indicator">
-                <div class="typing-dots">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-                <span class="typing-text">AI正在回复...</span>
-              </div>
-            </div>
-          </div>
+
         </div>
 
         <!-- 空对话状态 -->
@@ -1751,13 +1685,18 @@ const isDev = import.meta.env.DEV
 
 /* 打字指示器 */
 .typing-indicator {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+/* 在消息气泡中的打字指示器样式 */
+.message-text .typing-indicator {
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .dark .typing-indicator {

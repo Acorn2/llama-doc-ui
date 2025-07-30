@@ -13,6 +13,7 @@ import { setupRouterGuards } from './router/guards'
 // 样式导入
 import './styles/index.scss'
 import 'normalize.css'
+import 'highlight.js/styles/github.css' // 代码高亮样式
 
 // 创建应用实例
 const app = createApp(App)
