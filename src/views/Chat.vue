@@ -8,6 +8,7 @@ import {
 } from '@element-plus/icons-vue'
 import { KnowledgeBaseAPI, type KnowledgeBase } from '@/api/modules/knowledge-base'
 import { ConversationAPI, type Conversation, type Message } from '@/api/modules/conversation'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -137,9 +138,32 @@ const loadMessages = async () => {
   
   try {
     console.log('开始加载消息，对话ID:', selectedConversation.value.id)
-    messages.value = await ConversationAPI.getMessages(selectedConversation.value.id)
-    console.log('加载到的消息数量:', messages.value.length)
-    scrollToBottom()
+    const loadedMessages = await ConversationAPI.getMessages(selectedConversation.value.id)
+    console.log('API返回的原始消息数据:', loadedMessages)
+    console.log('消息数据类型:', typeof loadedMessages)
+    console.log('是否为数组:', Array.isArray(loadedMessages))
+    console.log('加载到的消息数量:', loadedMessages.length)
+    
+    // 验证消息数据结构
+    if (loadedMessages.length > 0) {
+      console.log('第一条消息示例:', loadedMessages[0])
+      console.log('消息字段检查:', {
+        hasId: !!loadedMessages[0].id,
+        hasRole: !!loadedMessages[0].role,
+        hasContent: !!loadedMessages[0].content,
+        hasCreateTime: !!loadedMessages[0].create_time
+      })
+    }
+    
+    messages.value = loadedMessages
+    console.log('设置后的messages.value:', messages.value)
+    console.log('messages.value长度:', messages.value.length)
+    
+    // 强制触发响应式更新
+    nextTick(() => {
+      console.log('nextTick后的messages.value长度:', messages.value.length)
+      scrollToBottom()
+    })
   } catch (error: any) {
     console.error('加载消息失败:', error)
     ElMessage.error('加载消息失败')
@@ -173,7 +197,13 @@ const createNewConversation = async () => {
 
 // 发送消息
 const sendMessage = async () => {
-  if (!canSendMessage.value) return
+  if (!canSendMessage.value || loading.value) return
+  
+  // 防止重复调用
+  if (loading.value) {
+    console.log('正在发送消息，忽略重复调用')
+    return
+  }
   
   const messageContent = currentMessage.value.trim()
   currentMessage.value = ''
@@ -195,14 +225,36 @@ const sendMessage = async () => {
     // 如果没有选中对话，先创建一个
     let conversationId = selectedConversation.value?.id
     if (!conversationId) {
+      console.log('没有选中对话，开始创建新对话...')
+      
       const newConversation = await ConversationAPI.create({
         kb_id: kbId.value,
         title: messageContent.slice(0, 20) + '...'
       })
-      conversations.value.unshift(newConversation)
+      
+      console.log('创建新对话成功:', newConversation)
+      
+      // 验证新对话的ID
+      if (!newConversation || !newConversation.id) {
+        console.error('创建对话失败：返回的对话对象无效', newConversation)
+        throw new Error('创建对话失败')
+      }
+      
+      // 确保响应式更新
+      conversations.value = [newConversation, ...conversations.value]
       selectedConversation.value = newConversation
       conversationId = newConversation.id
       userMessage.conversation_id = conversationId
+      
+      console.log('新对话ID:', conversationId)
+      console.log('当前对话列表长度:', conversations.value.length)
+      
+      // 强制触发响应式更新
+      nextTick(() => {
+        console.log('对话列表已更新，当前选中对话:', selectedConversation.value?.title)
+      })
+    } else {
+      console.log('使用现有对话ID:', conversationId)
     }
     
     // 创建AI回复消息占位符
@@ -216,7 +268,22 @@ const sendMessage = async () => {
     messages.value.push(aiMessage)
     scrollToBottom()
     
+    console.log('已添加AI消息占位符，当前消息数量:', messages.value.length)
+    
     // 使用流式对话接口
+    console.log('准备调用流式对话接口，参数:', {
+      conversation_id: conversationId,
+      kb_id: kbId.value,
+      message: messageContent,
+      use_agent: false
+    })
+    
+    // 确保conversationId不为空
+    if (!conversationId) {
+      console.error('conversationId为空，无法调用流式对话接口')
+      throw new Error('对话ID缺失')
+    }
+    
     const stream = await ConversationAPI.chatStream({
       conversation_id: conversationId,
       kb_id: kbId.value,
@@ -262,12 +329,27 @@ const sendMessage = async () => {
               const parsed = JSON.parse(data)
               console.log('收到流式数据:', parsed)
               
+              // 确保AI消息仍然存在于消息列表中
+              const aiMessageIndex = messages.value.findIndex(msg => msg.id === aiMessage.id)
+              if (aiMessageIndex === -1) {
+                console.warn('AI消息在流式处理过程中丢失，重新添加')
+                messages.value.push(aiMessage)
+              }
+              
               // 处理增量内容
               if (parsed.content) {
                 aiMessage.content += parsed.content
-                // 触发响应式更新
-                messages.value = [...messages.value]
-                scrollToBottom()
+                // 使用nextTick确保DOM更新
+                nextTick(() => {
+                  // 触发响应式更新，但保持引用稳定
+                  const currentMessages = [...messages.value]
+                  const targetIndex = currentMessages.findIndex(msg => msg.id === aiMessage.id)
+                  if (targetIndex !== -1) {
+                    currentMessages[targetIndex] = { ...aiMessage }
+                    messages.value = currentMessages
+                  }
+                  scrollToBottom()
+                })
               }
               
               // 处理完整消息信息
@@ -284,8 +366,15 @@ const sendMessage = async () => {
                 aiMessage.content = parsed.response
                 if (parsed.message_id) aiMessage.id = parsed.message_id
                 if (parsed.create_time) aiMessage.create_time = parsed.create_time
-                messages.value = [...messages.value]
-                scrollToBottom()
+                nextTick(() => {
+                  const currentMessages = [...messages.value]
+                  const targetIndex = currentMessages.findIndex(msg => msg.id === aiMessage.id)
+                  if (targetIndex !== -1) {
+                    currentMessages[targetIndex] = { ...aiMessage }
+                    messages.value = currentMessages
+                  }
+                  scrollToBottom()
+                })
               }
               
             } catch (parseError) {
@@ -305,8 +394,15 @@ const sendMessage = async () => {
               const parsed = JSON.parse(data)
               if (parsed.content) {
                 aiMessage.content += parsed.content
-                messages.value = [...messages.value]
-                scrollToBottom()
+                nextTick(() => {
+                  const currentMessages = [...messages.value]
+                  const targetIndex = currentMessages.findIndex(msg => msg.id === aiMessage.id)
+                  if (targetIndex !== -1) {
+                    currentMessages[targetIndex] = { ...aiMessage }
+                    messages.value = currentMessages
+                  }
+                  scrollToBottom()
+                })
               }
             } catch (parseError) {
               console.warn('解析缓冲区数据失败:', parseError)
@@ -322,51 +418,98 @@ const sendMessage = async () => {
     // 如果AI消息为空，显示错误信息
     if (!aiMessage.content.trim()) {
       aiMessage.content = '抱歉，AI助手暂时无法回复，请稍后重试。'
-      messages.value = [...messages.value]
+      nextTick(() => {
+        const currentMessages = [...messages.value]
+        const targetIndex = currentMessages.findIndex(msg => msg.id === aiMessage.id)
+        if (targetIndex !== -1) {
+          currentMessages[targetIndex] = { ...aiMessage }
+          messages.value = currentMessages
+        }
+      })
     }
     
     // 流式对话完成后，不需要重新加载消息列表，因为我们已经在本地维护了消息
     console.log('流式对话完成，当前消息数量:', messages.value.length)
+    console.log('最终AI消息内容长度:', aiMessage.content.length)
     
   } catch (error: any) {
-    console.error('流式对话失败:', error)
+    console.error('发送消息过程中出现错误:', error)
     
-    // 尝试使用普通聊天接口作为备用
-    try {
-      console.log('尝试使用普通聊天接口...')
+    // 根据错误类型提供不同的处理
+    if (error.message && error.message.includes('创建对话失败')) {
+      console.error('创建对话阶段失败:', error)
+      ElMessage.error('创建对话失败：' + error.message)
       
-      // 确保conversationId在作用域内
-      let fallbackConversationId = selectedConversation.value?.id
-      if (!fallbackConversationId) {
-        console.error('备用聊天时没有有效的对话ID')
-        throw new Error('没有有效的对话ID')
-      }
-      
-      const response = await ConversationAPI.chat({
-        conversation_id: fallbackConversationId,
-        kb_id: kbId.value,
-        message: messageContent,
-        use_agent: false
-      })
-      
-      // 更新AI消息内容
-      const aiMessageIndex = messages.value.length - 1
-      if (aiMessageIndex >= 0 && messages.value[aiMessageIndex].role === 'assistant') {
-        messages.value[aiMessageIndex].id = response.message_id
-        messages.value[aiMessageIndex].content = response.content
-        messages.value[aiMessageIndex].create_time = response.create_time
-        messages.value = [...messages.value]
-        scrollToBottom()
-      }
-      
-    } catch (fallbackError: any) {
-      console.error('备用聊天接口也失败:', fallbackError)
-      ElMessage.error('发送消息失败，请检查网络连接')
-      
-      // 移除用户消息和AI消息占位符（因为发送失败）
-      messages.value.pop() // 移除AI消息
-      messages.value.pop() // 移除用户消息
+      // 移除用户消息（因为对话创建失败）
+      messages.value.pop()
+      return
     }
+    
+    // 如果是流式对话失败，尝试使用普通聊天接口作为备用
+    if (selectedConversation.value?.id) {
+      try {
+        console.log('流式对话失败，尝试使用普通聊天接口...')
+        
+        const response = await ConversationAPI.chat({
+          conversation_id: selectedConversation.value.id,
+          kb_id: kbId.value,
+          message: messageContent,
+          use_agent: false
+        })
+        
+        // 找到最后一个AI消息并更新（避免重复）
+        const aiMessageIndex = messages.value.length - 1
+        if (aiMessageIndex >= 0 && messages.value[aiMessageIndex].role === 'assistant') {
+          // 使用nextTick确保DOM更新稳定
+          nextTick(() => {
+            const currentMessages = [...messages.value]
+            currentMessages[aiMessageIndex] = {
+              ...currentMessages[aiMessageIndex],
+              id: response.message_id,
+              content: response.content,
+              create_time: response.create_time
+            }
+            messages.value = currentMessages
+            scrollToBottom()
+          })
+          
+          console.log('备用接口成功，已更新AI回复')
+          ElMessage.success('消息发送成功（使用备用接口）')
+          return
+        } else {
+          console.warn('未找到AI消息占位符，创建新的AI消息')
+          // 如果没有找到AI消息占位符，创建一个新的
+          const newAiMessage: Message = {
+            id: response.message_id,
+            conversation_id: selectedConversation.value.id,
+            role: 'assistant',
+            content: response.content,
+            create_time: response.create_time
+          }
+          nextTick(() => {
+            messages.value = [...messages.value, newAiMessage]
+            scrollToBottom()
+          })
+          ElMessage.success('消息发送成功（使用备用接口）')
+          return
+        }
+        
+      } catch (fallbackError: any) {
+        console.error('备用聊天接口也失败:', fallbackError)
+        ElMessage.error('发送消息失败：' + (fallbackError.message || '网络连接异常'))
+      }
+    } else {
+      console.error('没有有效的对话ID，无法使用备用接口')
+      ElMessage.error('发送消息失败：' + (error.message || '请检查网络连接'))
+    }
+    
+    // 移除用户消息和AI消息占位符（因为发送失败）
+    nextTick(() => {
+      const currentMessages = [...messages.value]
+      currentMessages.pop() // 移除AI消息
+      currentMessages.pop() // 移除用户消息
+      messages.value = currentMessages
+    })
   } finally {
     loading.value = false
   }
@@ -418,7 +561,7 @@ const scrollToBottom = () => {
 
 // 处理键盘事件
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' && !event.shiftKey) {
+  if (event.key === 'Enter' && !event.shiftKey && !loading.value) {
     event.preventDefault()
     sendMessage()
   }
@@ -516,6 +659,29 @@ const testLoadMessages = async () => {
   } catch (error) {
     console.error('测试加载消息失败:', error)
     ElMessage.error('测试加载消息失败')
+  }
+}
+
+// 测试创建对话（开发环境使用）
+const testCreateConversation = async () => {
+  if (!kbId.value) {
+    ElMessage.warning('知识库ID缺失')
+    return
+  }
+  
+  try {
+    console.log('测试创建对话，知识库ID:', kbId.value)
+    const testConversation = await ConversationAPI.create({
+      kb_id: kbId.value,
+      title: '测试对话'
+    })
+    
+    console.log('测试创建对话成功:', testConversation)
+    console.log('对话ID:', testConversation.id)
+    ElMessage.success(`创建对话成功，ID: ${testConversation.id}`)
+  } catch (error) {
+    console.error('测试创建对话失败:', error)
+    ElMessage.error('测试创建对话失败: ' + error.message)
   }
 }
 
@@ -641,6 +807,10 @@ const isDev = import.meta.env.DEV
             <el-icon class="mr-1"><ChatDotRound /></el-icon>
             重新加载对话
           </el-button>
+          <el-button v-if="isDev" @click="testCreateConversation" type="text" size="small">
+            <el-icon class="mr-1"><Plus /></el-icon>
+            测试创建对话
+          </el-button>
           <el-button v-if="isDev && selectedConversation" @click="testLoadMessages" type="text" size="small">
             <el-icon class="mr-1"><Document /></el-icon>
             测试加载消息
@@ -703,8 +873,17 @@ const isDev = import.meta.env.DEV
           </div>
         </div>
 
+        <!-- 调试信息 (开发环境) -->
+        <div v-if="isDev" class="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px; border-radius: 5px; font-size: 12px;">
+          <p>调试信息:</p>
+          <p>messages.length: {{ messages.length }}</p>
+          <p>selectedConversation: {{ selectedConversation?.id }}</p>
+          <p>knowledgeBase: {{ knowledgeBase?.name }}</p>
+          <p>loading: {{ loading }}</p>
+        </div>
+
         <!-- 消息列表 -->
-        <div v-else-if="messages.length > 0" class="messages-list">
+        <div v-if="messages.length > 0" class="messages-list">
           <div 
             v-for="message in messages" 
             :key="message.id"
@@ -715,7 +894,12 @@ const isDev = import.meta.env.DEV
               <el-icon v-else><Service /></el-icon>
             </div>
             <div class="message-content">
-              <div class="message-text">{{ message.content }}</div>
+              <div class="message-text">
+                <div v-if="message.role === 'user'" class="user-message">
+                  {{ message.content }}
+                </div>
+                <MarkdownRenderer v-else :content="message.content" />
+              </div>
               <div class="message-time">{{ formatMessageTime(message.create_time) }}</div>
             </div>
           </div>
@@ -768,7 +952,7 @@ const isDev = import.meta.env.DEV
               <el-button 
                 type="primary" 
                 @click="sendMessage"
-                :disabled="!canSendMessage"
+                :disabled="!canSendMessage || loading"
                 class="send-button"
                 :loading="loading"
               >
@@ -1475,6 +1659,96 @@ const isDev = import.meta.env.DEV
   text-align: left;
 }
 
+/* 用户消息样式 */
+.user-message {
+  color: inherit;
+  line-height: 1.6;
+}
+
+/* AI消息的Markdown渲染区域样式调整 */
+.message-item.assistant .message-text {
+  padding: 1.25rem 1.5rem;
+}
+
+.message-item.assistant .markdown-content {
+  color: inherit;
+}
+
+.message-item.assistant .markdown-content :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.message-item.assistant .markdown-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+/* 在AI消息中的代码块样式优化 */
+.message-item.assistant .markdown-content :deep(pre) {
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+  margin: 0.8em 0;
+  border-radius: 8px;
+}
+
+.dark .message-item.assistant .markdown-content :deep(pre) {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+.message-item.assistant .markdown-content :deep(code) {
+  background-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+.dark .message-item.assistant .markdown-content :deep(code) {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+/* AI消息中的列表样式优化 */
+.message-item.assistant .markdown-content :deep(ul),
+.message-item.assistant .markdown-content :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.message-item.assistant .markdown-content :deep(li) {
+  margin: 0.2em 0;
+}
+
+/* AI消息中的标题样式优化 */
+.message-item.assistant .markdown-content :deep(h1),
+.message-item.assistant .markdown-content :deep(h2),
+.message-item.assistant .markdown-content :deep(h3),
+.message-item.assistant .markdown-content :deep(h4),
+.message-item.assistant .markdown-content :deep(h5),
+.message-item.assistant .markdown-content :deep(h6) {
+  margin: 1em 0 0.5em 0;
+  color: inherit;
+}
+
+.message-item.assistant .markdown-content :deep(h1) {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.2em;
+}
+
+.dark .message-item.assistant .markdown-content :deep(h1) {
+  border-color: #374151;
+}
+
+/* AI消息中的引用样式优化 */
+.message-item.assistant .markdown-content :deep(blockquote) {
+  border-left: 3px solid #667eea;
+  background-color: rgba(102, 126, 234, 0.05);
+  margin: 0.8em 0;
+  padding: 0.6em 1em;
+  border-radius: 0 6px 6px 0;
+}
+
+.dark .message-item.assistant .markdown-content :deep(blockquote) {
+  background-color: rgba(102, 126, 234, 0.1);
+}
+
 /* 打字指示器 */
 .typing-indicator {
   background: white;
@@ -1601,19 +1875,20 @@ const isDev = import.meta.env.DEV
 .input-container {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .input-box {
   display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
+  gap: 0.75rem;
+  align-items: center;
   background: white;
   border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 0.5rem;
+  border-radius: 16px;
+  padding: 1rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  min-height: 56px;
 }
 
 .input-box:hover {
@@ -1644,6 +1919,14 @@ const isDev = import.meta.env.DEV
 
 .message-input {
   flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.message-input :deep(.el-textarea) {
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .message-input :deep(.el-textarea__inner) {
@@ -1651,10 +1934,13 @@ const isDev = import.meta.env.DEV
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
+  margin: 0 !important;
   font-size: 0.9375rem;
-  line-height: 1.5;
+  line-height: 1.6;
   resize: none;
   color: #1f2937;
+  min-height: 24px !important;
+  overflow-y: hidden;
 }
 
 .dark .message-input :deep(.el-textarea__inner) {
@@ -1672,15 +1958,18 @@ const isDev = import.meta.env.DEV
 
 .send-button {
   flex-shrink: 0;
-  height: 36px !important;
-  width: 36px !important;
-  border-radius: 8px !important;
-  font-size: 1rem;
+  height: 44px !important;
+  width: 44px !important;
+  border-radius: 12px !important;
+  font-size: 1.125rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
   border: none !important;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .send-button::before {
@@ -1746,12 +2035,15 @@ const isDev = import.meta.env.DEV
 
 .char-count {
   flex-shrink: 0;
-  font-weight: 500;
-  padding: 0.25rem 0.5rem;
-  border-radius: 8px;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
   background: rgba(102, 126, 234, 0.1);
   color: #667eea;
   transition: all 0.3s ease;
+  font-size: 0.75rem;
+  min-width: 60px;
+  text-align: center;
 }
 
 .char-count.char-limit {
@@ -1823,13 +2115,14 @@ const isDev = import.meta.env.DEV
   }
   
   .input-box {
-    padding: 0.5rem;
+    padding: 0.75rem;
     border-radius: 12px;
+    min-height: 52px;
   }
   
   .send-button {
-    height: 38px !important;
-    width: 38px !important;
+    height: 40px !important;
+    width: 40px !important;
   }
   
   .input-footer {

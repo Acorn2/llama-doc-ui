@@ -41,8 +41,46 @@ export interface ChatResponse {
 export class ConversationAPI {
   // 创建新对话
   static async create(data: CreateConversationData): Promise<Conversation> {
+    console.log('ConversationAPI.create 请求参数:', data)
+    
     const response = await api.post('/api/v1/conversations/', data)
-    return response.data
+    console.log('ConversationAPI.create 原始响应:', response)
+    
+    // 处理不同的响应格式
+    let conversationData = response.data
+    
+    // 如果响应有success字段，说明是包装过的响应
+    if (response.data && typeof response.data === 'object') {
+      if (response.data.success === false) {
+        console.error('创建对话失败:', response.data.message || '未知错误')
+        throw new Error(response.data.message || '创建对话失败')
+      } else if (response.data.success === true) {
+        // 检查不同的数据字段
+        if (response.data.conversation) {
+          conversationData = response.data.conversation
+        } else if (response.data.data) {
+          conversationData = response.data.data
+        } else {
+          // 如果没有嵌套数据，使用整个response.data
+          conversationData = response.data
+        }
+      }
+    }
+    
+    console.log('ConversationAPI.create 返回数据:', conversationData)
+    
+    // 验证返回的对话对象
+    if (!conversationData) {
+      console.error('创建对话返回的数据为空')
+      throw new Error('创建对话失败：服务器返回空数据')
+    }
+    
+    if (!conversationData.id) {
+      console.error('创建对话返回的数据缺少ID字段:', conversationData)
+      throw new Error('创建对话失败：缺少对话ID')
+    }
+    
+    return conversationData
   }
 
   // 获取对话列表
@@ -92,8 +130,18 @@ export class ConversationAPI {
 
   // 流式聊天
   static async chatStream(data: ChatRequest): Promise<ReadableStream> {
+    console.log('ConversationAPI.chatStream 调用参数:', data)
+    
     const token = localStorage.getItem('access_token')
     const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+    
+    // 验证必要参数
+    if (!data.conversation_id) {
+      console.warn('流式聊天接口缺少conversation_id参数')
+    }
+    
+    const requestBody = JSON.stringify(data)
+    console.log('流式聊天请求体:', requestBody)
     
     const response = await fetch(`${baseURL}/api/v1/conversations/chat/stream`, {
       method: 'POST',
@@ -102,7 +150,7 @@ export class ConversationAPI {
         'Authorization': `Bearer ${token}`,
         'Accept': 'text/plain'
       },
-      body: JSON.stringify(data)
+      body: requestBody
     })
     
     if (!response.ok) {
@@ -146,6 +194,11 @@ export class ConversationAPI {
         } else if (Array.isArray(response.data.data)) {
           return response.data.data
         }
+      }
+      // 如果有items字段（分页响应格式）
+      else if (response.data.items && Array.isArray(response.data.items)) {
+        console.log('检测到items格式的响应，消息数量:', response.data.items.length)
+        return response.data.items
       }
       // 如果直接是数组
       else if (Array.isArray(response.data)) {
