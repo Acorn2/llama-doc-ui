@@ -94,10 +94,32 @@ const loadConversations = async () => {
   
   try {
     conversationLoading.value = true
-    conversations.value = await ConversationAPI.getList({
+    console.log('开始加载对话列表，知识库ID:', kbId.value)
+    
+    const result = await ConversationAPI.getList({
       kb_id: kbId.value,
       limit: 50
     })
+    
+    console.log('API返回的对话数据:', result)
+    console.log('对话数据类型:', typeof result)
+    console.log('是否为数组:', Array.isArray(result))
+    
+    // 处理不同的响应格式
+    if (Array.isArray(result)) {
+      conversations.value = result
+    } else if (result && result.data && Array.isArray(result.data)) {
+      conversations.value = result.data
+    } else if (result && result.conversations && Array.isArray(result.conversations)) {
+      conversations.value = result.conversations
+    } else {
+      console.warn('未知的对话数据格式:', result)
+      conversations.value = []
+    }
+    
+    console.log('设置后的conversations.value:', conversations.value)
+    console.log('conversations.value长度:', conversations.value.length)
+    
   } catch (error: any) {
     console.error('加载对话列表失败:', error)
     ElMessage.error('加载对话列表失败')
@@ -108,10 +130,15 @@ const loadConversations = async () => {
 
 // 加载消息列表
 const loadMessages = async () => {
-  if (!selectedConversation.value) return
+  if (!selectedConversation.value || !selectedConversation.value.id) {
+    console.warn('loadMessages: 没有选中的对话或对话ID为空')
+    return
+  }
   
   try {
+    console.log('开始加载消息，对话ID:', selectedConversation.value.id)
     messages.value = await ConversationAPI.getMessages(selectedConversation.value.id)
+    console.log('加载到的消息数量:', messages.value.length)
     scrollToBottom()
   } catch (error: any) {
     console.error('加载消息失败:', error)
@@ -178,31 +205,168 @@ const sendMessage = async () => {
       userMessage.conversation_id = conversationId
     }
     
-    // 发送消息到后端
-    const response = await ConversationAPI.chat({
+    // 创建AI回复消息占位符
+    const aiMessage: Message = {
+      id: `temp-${Date.now()}`,
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: '',
+      create_time: new Date().toISOString()
+    }
+    messages.value.push(aiMessage)
+    scrollToBottom()
+    
+    // 使用流式对话接口
+    const stream = await ConversationAPI.chatStream({
       conversation_id: conversationId,
       kb_id: kbId.value,
       message: messageContent,
       use_agent: false
     })
     
-    // 添加AI回复到界面
-    const aiMessage: Message = {
-      id: response.message_id,
-      conversation_id: conversationId,
-      role: 'assistant',
-      content: response.content,
-      create_time: response.create_time
+    // 处理流式响应
+    const reader = stream.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        // 将新数据添加到缓冲区
+        buffer += decoder.decode(value, { stream: true })
+        
+        // 按行分割处理
+        const lines = buffer.split('\n')
+        // 保留最后一个可能不完整的行
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim()
+          if (!trimmedLine) continue
+          
+          if (trimmedLine.startsWith('data: ')) {
+            const data = trimmedLine.slice(6).trim()
+            
+            // 检查是否是结束标志
+            if (data === '[DONE]') {
+              console.log('流式对话结束')
+              break
+            }
+            
+            // 跳过空数据
+            if (!data) continue
+            
+            try {
+              const parsed = JSON.parse(data)
+              console.log('收到流式数据:', parsed)
+              
+              // 处理增量内容
+              if (parsed.content) {
+                aiMessage.content += parsed.content
+                // 触发响应式更新
+                messages.value = [...messages.value]
+                scrollToBottom()
+              }
+              
+              // 处理完整消息信息
+              if (parsed.message_id && parsed.message_id !== aiMessage.id) {
+                aiMessage.id = parsed.message_id
+              }
+              
+              if (parsed.create_time) {
+                aiMessage.create_time = parsed.create_time
+              }
+              
+              // 处理完整响应（非流式情况的兼容）
+              if (parsed.response && !aiMessage.content) {
+                aiMessage.content = parsed.response
+                if (parsed.message_id) aiMessage.id = parsed.message_id
+                if (parsed.create_time) aiMessage.create_time = parsed.create_time
+                messages.value = [...messages.value]
+                scrollToBottom()
+              }
+              
+            } catch (parseError) {
+              console.warn('解析流式数据失败:', parseError, 'data:', data)
+            }
+          }
+        }
+      }
+      
+      // 处理缓冲区中剩余的数据
+      if (buffer.trim()) {
+        const trimmedBuffer = buffer.trim()
+        if (trimmedBuffer.startsWith('data: ')) {
+          const data = trimmedBuffer.slice(6).trim()
+          if (data && data !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.content) {
+                aiMessage.content += parsed.content
+                messages.value = [...messages.value]
+                scrollToBottom()
+              }
+            } catch (parseError) {
+              console.warn('解析缓冲区数据失败:', parseError)
+            }
+          }
+        }
+      }
+      
+    } finally {
+      reader.releaseLock()
     }
-    messages.value.push(aiMessage)
-    scrollToBottom()
+    
+    // 如果AI消息为空，显示错误信息
+    if (!aiMessage.content.trim()) {
+      aiMessage.content = '抱歉，AI助手暂时无法回复，请稍后重试。'
+      messages.value = [...messages.value]
+    }
+    
+    // 流式对话完成后，不需要重新加载消息列表，因为我们已经在本地维护了消息
+    console.log('流式对话完成，当前消息数量:', messages.value.length)
     
   } catch (error: any) {
-    console.error('发送消息失败:', error)
-    ElMessage.error('发送消息失败')
+    console.error('流式对话失败:', error)
     
-    // 移除用户消息（因为发送失败）
-    messages.value.pop()
+    // 尝试使用普通聊天接口作为备用
+    try {
+      console.log('尝试使用普通聊天接口...')
+      
+      // 确保conversationId在作用域内
+      let fallbackConversationId = selectedConversation.value?.id
+      if (!fallbackConversationId) {
+        console.error('备用聊天时没有有效的对话ID')
+        throw new Error('没有有效的对话ID')
+      }
+      
+      const response = await ConversationAPI.chat({
+        conversation_id: fallbackConversationId,
+        kb_id: kbId.value,
+        message: messageContent,
+        use_agent: false
+      })
+      
+      // 更新AI消息内容
+      const aiMessageIndex = messages.value.length - 1
+      if (aiMessageIndex >= 0 && messages.value[aiMessageIndex].role === 'assistant') {
+        messages.value[aiMessageIndex].id = response.message_id
+        messages.value[aiMessageIndex].content = response.content
+        messages.value[aiMessageIndex].create_time = response.create_time
+        messages.value = [...messages.value]
+        scrollToBottom()
+      }
+      
+    } catch (fallbackError: any) {
+      console.error('备用聊天接口也失败:', fallbackError)
+      ElMessage.error('发送消息失败，请检查网络连接')
+      
+      // 移除用户消息和AI消息占位符（因为发送失败）
+      messages.value.pop() // 移除AI消息
+      messages.value.pop() // 移除用户消息
+    }
   } finally {
     loading.value = false
   }
@@ -294,6 +458,69 @@ const formatMessageTime = (timeStr: string) => {
 const goBackToKnowledgeBase = () => {
   router.push('/knowledge-base')
 }
+
+// 测试流式连接（开发环境使用）
+const testStreamConnection = async () => {
+  if (!selectedConversation.value) {
+    ElMessage.warning('请先选择或创建一个对话')
+    return
+  }
+  
+  try {
+    console.log('测试流式连接...')
+    const stream = await ConversationAPI.chatStream({
+      conversation_id: selectedConversation.value.id,
+      kb_id: kbId.value,
+      message: '测试连接',
+      use_agent: false
+    })
+    
+    const reader = stream.getReader()
+    const decoder = new TextDecoder()
+    let testContent = ''
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value, { stream: true })
+        testContent += chunk
+        console.log('收到测试数据:', chunk)
+      }
+      
+      console.log('流式连接测试完成，总内容:', testContent)
+      ElMessage.success('流式连接测试成功')
+    } finally {
+      reader.releaseLock()
+    }
+    
+  } catch (error) {
+    console.error('流式连接测试失败:', error)
+    ElMessage.error('流式连接测试失败')
+  }
+}
+
+// 测试消息加载（开发环境使用）
+const testLoadMessages = async () => {
+  if (!selectedConversation.value) {
+    ElMessage.warning('请先选择一个对话')
+    return
+  }
+  
+  try {
+    console.log('测试加载消息，对话ID:', selectedConversation.value.id)
+    const testMessages = await ConversationAPI.getMessages(selectedConversation.value.id)
+    console.log('测试加载到的消息:', testMessages)
+    ElMessage.success(`成功加载 ${testMessages.length} 条消息`)
+  } catch (error) {
+    console.error('测试加载消息失败:', error)
+    ElMessage.error('测试加载消息失败')
+  }
+}
+
+// 开发环境标志
+const isDev = import.meta.env.DEV
 </script>
 
 <template>
@@ -360,7 +587,7 @@ const goBackToKnowledgeBase = () => {
                 <el-icon><ChatDotRound /></el-icon>
               </div>
               <p class="empty-text">暂无对话</p>
-              <p class="empty-hint">点击上方按钮开始新对话</p>
+              <p class="empty-hint">开始新对话探索知识库</p>
             </div>
           </div>
           
@@ -373,6 +600,7 @@ const goBackToKnowledgeBase = () => {
             >
               <div class="conversation-content">
                 <div class="conversation-title">{{ conversation.title }}</div>
+                <div class="conversation-time">{{ formatTime(conversation.update_time || conversation.create_time) }}</div>
               </div>
               <el-dropdown @click.stop>
                 <el-button type="text" size="small" class="conversation-menu">
@@ -409,6 +637,18 @@ const goBackToKnowledgeBase = () => {
         </div>
         
         <div class="chat-actions">
+          <el-button v-if="isDev" @click="loadConversations" type="text" size="small">
+            <el-icon class="mr-1"><ChatDotRound /></el-icon>
+            重新加载对话
+          </el-button>
+          <el-button v-if="isDev && selectedConversation" @click="testLoadMessages" type="text" size="small">
+            <el-icon class="mr-1"><Document /></el-icon>
+            测试加载消息
+          </el-button>
+          <el-button v-if="isDev && selectedConversation" @click="testStreamConnection" type="text" size="small">
+            <el-icon class="mr-1"><Service /></el-icon>
+            测试流式连接
+          </el-button>
           <el-button v-if="selectedConversation" @click="messages = []" type="text" size="small">
             <el-icon class="mr-1"><Delete /></el-icon>
             清空消息
@@ -438,21 +678,27 @@ const goBackToKnowledgeBase = () => {
             <div class="welcome-icon">
               <el-icon><Service /></el-icon>
             </div>
-            <h3 class="welcome-title">欢迎使用智能对话</h3>
-            <p class="welcome-desc">基于"{{ knowledgeBase.name }}"知识库与AI助手对话</p>
+            <h3 class="welcome-title">开始智能对话</h3>
+            <p class="welcome-desc">基于"{{ knowledgeBase.name }}"知识库，获取精准答案</p>
             <div class="welcome-features">
               <div class="feature-item">
                 <el-icon><Document /></el-icon>
-                <span>基于知识库内容回答</span>
+                <span>知识库问答</span>
               </div>
               <div class="feature-item">
                 <el-icon><Service /></el-icon>
-                <span>智能AI助手</span>
+                <span>AI智能助手</span>
               </div>
               <div class="feature-item">
                 <el-icon><ChatDotRound /></el-icon>
                 <span>上下文记忆</span>
               </div>
+            </div>
+            <div class="welcome-action">
+              <el-button type="primary" @click="createNewConversation" class="start-chat-btn">
+                <el-icon class="mr-2"><Plus /></el-icon>
+                开始对话
+              </el-button>
             </div>
           </div>
         </div>
@@ -475,7 +721,7 @@ const goBackToKnowledgeBase = () => {
           </div>
 
           <!-- AI回复加载状态 -->
-          <div v-if="loading" class="message-item assistant">
+          <div v-if="loading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content" class="message-item assistant">
             <div class="message-avatar">
               <el-icon><Service /></el-icon>
             </div>
@@ -486,7 +732,7 @@ const goBackToKnowledgeBase = () => {
                   <span></span>
                   <span></span>
                 </div>
-                <span class="typing-text">AI正在思考...</span>
+                <span class="typing-text">AI正在回复...</span>
               </div>
             </div>
           </div>
@@ -498,8 +744,8 @@ const goBackToKnowledgeBase = () => {
             <div class="empty-chat-icon">
               <el-icon><ChatDotRound /></el-icon>
             </div>
-            <h3 class="empty-chat-title">开始新对话</h3>
-            <p class="empty-chat-desc">向AI助手提问，获取基于知识库的智能回答</p>
+            <h3 class="empty-chat-title">选择对话开始聊天</h3>
+            <p class="empty-chat-desc">从左侧选择一个对话，或创建新对话开始与AI助手交流</p>
           </div>
         </div>
       </div>
@@ -876,6 +1122,8 @@ const goBackToKnowledgeBase = () => {
   color: #9ca3af;
 }
 
+
+
 .conversation-items {
   flex: 1;
   overflow-y: auto;
@@ -885,14 +1133,14 @@ const goBackToKnowledgeBase = () => {
 .conversation-item {
   display: flex;
   align-items: center;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
   border-left: 3px solid transparent;
   border-radius: 0 12px 12px 0;
-  margin: 0 0.5rem 0.5rem 0;
+  margin: 0 0.5rem 0.25rem 0;
   position: relative;
-  min-height: 52px;
+  min-height: 48px;
 }
 
 .conversation-item::before {
@@ -934,7 +1182,8 @@ const goBackToKnowledgeBase = () => {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .conversation-title {
@@ -946,6 +1195,14 @@ const goBackToKnowledgeBase = () => {
   text-overflow: ellipsis;
   line-height: 1.4;
   margin: 0;
+}
+
+.conversation-time {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dark .conversation-title {
@@ -1089,6 +1346,7 @@ const goBackToKnowledgeBase = () => {
   justify-content: center;
   gap: 2rem;
   flex-wrap: wrap;
+  margin-bottom: 2rem;
 }
 
 .feature-item {
@@ -1107,6 +1365,25 @@ const goBackToKnowledgeBase = () => {
 .feature-item .el-icon {
   font-size: 1.5rem;
   color: #667eea;
+}
+
+.welcome-action {
+  text-align: center;
+}
+
+.start-chat-btn {
+  height: 44px !important;
+  padding: 0 2rem !important;
+  border-radius: 12px !important;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  transition: all 0.3s ease;
+}
+
+.start-chat-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
 }
 
 /* 消息列表 */
@@ -1305,7 +1582,7 @@ const goBackToKnowledgeBase = () => {
 
 /* 输入区域 */
 .chat-input {
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
   border-top: 1px solid #e5e7eb;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   flex-shrink: 0;
@@ -1324,19 +1601,19 @@ const goBackToKnowledgeBase = () => {
 .input-container {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .input-box {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: flex-end;
   background: white;
   border: 2px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 0.75rem;
+  border-radius: 12px;
+  padding: 0.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .input-box:hover {
@@ -1395,10 +1672,10 @@ const goBackToKnowledgeBase = () => {
 
 .send-button {
   flex-shrink: 0;
-  height: 44px !important;
-  width: 44px !important;
-  border-radius: 12px !important;
-  font-size: 1.125rem;
+  height: 36px !important;
+  width: 36px !important;
+  border-radius: 8px !important;
+  font-size: 1rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
   border: none !important;
   transition: all 0.3s ease;
