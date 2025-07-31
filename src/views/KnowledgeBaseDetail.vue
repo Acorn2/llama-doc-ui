@@ -47,35 +47,7 @@
               </div>
             </div>
             
-            <div class="kb-actions">
-              <!-- 聊天按钮 - 所有用户都可以使用 -->
-              <el-button @click="startChat" type="success" size="small">
-                <el-icon class="mr-1"><ChatDotRound /></el-icon>
-                开始聊天
-              </el-button>
-              
-              <!-- 管理按钮 - 仅所有者可见 -->
-              <template v-if="knowledgeBase.is_owner">
-                <el-button @click="showEditDialog = true" type="primary" plain size="small">
-                  <el-icon class="mr-1"><Edit /></el-icon>
-                  编辑
-                </el-button>
-                <el-button @click="openUploadDialog" type="success" plain size="small">
-                  <el-icon class="mr-1"><Upload /></el-icon>
-                  上传文档
-                </el-button>
-                <!-- 开发环境调试按钮 -->
-                <el-button 
-                  v-if="isDev" 
-                  @click="testAPIConnection" 
-                  type="warning" 
-                  plain
-                  size="small"
-                >
-                  测试API
-                </el-button>
-              </template>
-            </div>
+
           </div>
           
           <!-- 简化的描述和标签展示 -->
@@ -830,11 +802,7 @@ ed>
   flex-wrap: wrap;
 }
 
-.kb-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
+
 
 /* 紧凑的元信息展示 */
 .kb-meta-compact {
@@ -1383,10 +1351,7 @@ ed>
     gap: 0.5rem;
   }
   
-  .kb-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
+
   
   .section-header {
     flex-direction: column;

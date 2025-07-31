@@ -148,22 +148,11 @@ const createNewConversation = async () => {
     return
   }
   
-  try {
-    const title = `新对话 ${new Date().toLocaleString()}`
-    const newConversation = await ConversationAPI.create({
-      kb_id: kbId.value,
-      title
-    })
-    
-    conversations.value.unshift(newConversation)
-    selectedConversation.value = newConversation
-    messages.value = []
-    
-    ElMessage.success('创建新对话成功')
-  } catch (error: any) {
-    console.error('创建对话失败:', error)
-    ElMessage.error('创建对话失败')
-  }
+  // 只清空当前对话和消息，不调用后端接口
+  selectedConversation.value = null
+  messages.value = []
+  
+  // 不显示成功消息，让用户直接开始输入
 }
 
 // 发送消息
@@ -375,15 +364,11 @@ const sendMessage = async () => {
     }
     
     // 流式对话完成后，不需要重新加载消息列表，因为我们已经在本地维护了消息
-    console.log('流式对话完成，当前消息数量:', messages.value.length)
-    console.log('最终AI消息内容长度:', aiMessage.content.length)
     
   } catch (error: any) {
-    console.error('发送消息过程中出现错误:', error)
     
     // 根据错误类型提供不同的处理
     if (error.message && error.message.includes('创建对话失败')) {
-      console.error('创建对话阶段失败:', error)
       ElMessage.error('创建对话失败：' + error.message)
       
       // 移除用户消息（因为对话创建失败）
@@ -394,8 +379,6 @@ const sendMessage = async () => {
     // 如果是流式对话失败，尝试使用普通聊天接口作为备用
     if (selectedConversation.value?.id) {
       try {
-        console.log('流式对话失败，尝试使用普通聊天接口...')
-        
         const response = await ConversationAPI.chat({
           conversation_id: selectedConversation.value.id,
           kb_id: kbId.value,
@@ -419,11 +402,9 @@ const sendMessage = async () => {
             scrollToBottom()
           })
           
-          console.log('备用接口成功，已更新AI回复')
           ElMessage.success('消息发送成功（使用备用接口）')
           return
         } else {
-          console.warn('未找到AI消息占位符，创建新的AI消息')
           // 如果没有找到AI消息占位符，创建一个新的
           const newAiMessage: Message = {
             id: response.message_id,
@@ -441,21 +422,27 @@ const sendMessage = async () => {
         }
         
       } catch (fallbackError: any) {
-        console.error('备用聊天接口也失败:', fallbackError)
         ElMessage.error('发送消息失败：' + (fallbackError.message || '网络连接异常'))
+        
+        // 备用接口也失败了，移除用户消息和AI消息占位符
+        nextTick(() => {
+          const currentMessages = [...messages.value]
+          currentMessages.pop() // 移除AI消息
+          currentMessages.pop() // 移除用户消息
+          messages.value = currentMessages
+        })
       }
     } else {
-      console.error('没有有效的对话ID，无法使用备用接口')
       ElMessage.error('发送消息失败：' + (error.message || '请检查网络连接'))
+      
+      // 没有有效的对话ID，移除用户消息和AI消息占位符
+      nextTick(() => {
+        const currentMessages = [...messages.value]
+        currentMessages.pop() // 移除AI消息
+        currentMessages.pop() // 移除用户消息
+        messages.value = currentMessages
+      })
     }
-    
-    // 移除用户消息和AI消息占位符（因为发送失败）
-    nextTick(() => {
-      const currentMessages = [...messages.value]
-      currentMessages.pop() // 移除AI消息
-      currentMessages.pop() // 移除用户消息
-      messages.value = currentMessages
-    })
   } finally {
     loading.value = false
   }
@@ -556,7 +543,6 @@ const testStreamConnection = async () => {
   }
   
   try {
-    console.log('测试流式连接...')
     const stream = await ConversationAPI.chatStream({
       conversation_id: selectedConversation.value.id,
       kb_id: kbId.value,
@@ -575,17 +561,14 @@ const testStreamConnection = async () => {
         
         const chunk = decoder.decode(value, { stream: true })
         testContent += chunk
-        console.log('收到测试数据:', chunk)
       }
       
-      console.log('流式连接测试完成，总内容:', testContent)
       ElMessage.success('流式连接测试成功')
     } finally {
       reader.releaseLock()
     }
     
   } catch (error) {
-    console.error('流式连接测试失败:', error)
     ElMessage.error('流式连接测试失败')
   }
 }
@@ -598,12 +581,9 @@ const testLoadMessages = async () => {
   }
   
   try {
-    console.log('测试加载消息，对话ID:', selectedConversation.value.id)
     const testMessages = await ConversationAPI.getMessages(selectedConversation.value.id)
-    console.log('测试加载到的消息:', testMessages)
     ElMessage.success(`成功加载 ${testMessages.length} 条消息`)
   } catch (error) {
-    console.error('测试加载消息失败:', error)
     ElMessage.error('测试加载消息失败')
   }
 }
@@ -616,17 +596,13 @@ const testCreateConversation = async () => {
   }
   
   try {
-    console.log('测试创建对话，知识库ID:', kbId.value)
     const testConversation = await ConversationAPI.create({
       kb_id: kbId.value,
       title: '测试对话'
     })
     
-    console.log('测试创建对话成功:', testConversation)
-    console.log('对话ID:', testConversation.id)
     ElMessage.success(`创建对话成功，ID: ${testConversation.id}`)
   } catch (error) {
-    console.error('测试创建对话失败:', error)
     ElMessage.error('测试创建对话失败: ' + error.message)
   }
 }
@@ -811,10 +787,7 @@ const isDev = import.meta.env.DEV
               </div>
             </div>
             <div class="welcome-action">
-              <el-button type="primary" @click="createNewConversation" class="start-chat-btn">
-                <el-icon class="mr-2"><Plus /></el-icon>
-                开始对话
-              </el-button>
+              <p class="welcome-hint">在下方输入框中输入您的问题，开始智能对话</p>
             </div>
           </div>
         </div>
@@ -1489,19 +1462,21 @@ const isDev = import.meta.env.DEV
   text-align: center;
 }
 
-.start-chat-btn {
-  height: 44px !important;
-  padding: 0 2rem !important;
-  border-radius: 12px !important;
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  border: none !important;
-  transition: all 0.3s ease;
+.welcome-hint {
+  color: #667eea;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+  padding: 1rem 2rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  display: inline-block;
 }
 
-.start-chat-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+.dark .welcome-hint {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.3);
 }
 
 /* 消息列表 */

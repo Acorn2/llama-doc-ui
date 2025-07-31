@@ -261,6 +261,36 @@ const getTagColor = (index: number) => {
 const tagsToString = (tags: string[]) => {
   return tags.join(', ')
 }
+
+// 申请公开知识库
+const handleApplyPublic = async (kb: KnowledgeBase) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要申请将知识库"${kb.name}"设为公开吗？公开后所有用户都可以查看和使用。`,
+      '申请公开',
+      {
+        confirmButtonText: '确定申请',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    // 更新知识库为公开状态
+    await KnowledgeBaseAPI.update(kb.id, { 
+      is_public: true,
+      public_description: kb.description || kb.name
+    })
+    
+    ElMessage.success('申请公开成功，知识库已设为公开状态')
+    loadKnowledgeBases() // 重新加载列表
+  } catch (error: any) {
+    if (error === 'cancel') return // 用户取消申请
+    
+    console.error('申请公开失败:', error)
+    const errorMessage = error.response?.data?.detail || error.message || '申请公开失败'
+    ElMessage.error(errorMessage)
+  }
+}
 </script>
 
 <template>
@@ -326,6 +356,10 @@ const tagsToString = (tags: string[]) => {
                   <el-dropdown-item @click="handleEdit(kb)">
                     <el-icon><Edit /></el-icon>
                     编辑
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="!kb.is_public" @click="handleApplyPublic(kb)">
+                    <el-icon><Share /></el-icon>
+                    公开
                   </el-dropdown-item>
                   <el-dropdown-item @click="handleDelete(kb)" divided>
                     <el-icon><Delete /></el-icon>
@@ -945,9 +979,9 @@ const tagsToString = (tags: string[]) => {
 .kb-card-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   padding: 0.5rem 0;
-  min-height: 200px; /* 减小卡片高度 */
+  min-height: 160px; /* 进一步减小卡片高度 */
 }
 
 .kb-card-content > * {
@@ -956,21 +990,23 @@ const tagsToString = (tags: string[]) => {
 
 /* 描述区域 */
 .kb-description {
-  flex: 1; /* 让描述区域占据剩余空间 */
+  flex: 0 0 auto; /* 不让描述区域占据过多空间 */
   display: flex;
   align-items: flex-start;
+  min-height: 44px; /* 固定两行文本的高度 */
 }
 
 .description-text {
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.5;
   color: #6b7280;
   font-size: 0.875rem;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2; /* 限制为两行 */
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  height: 42px; /* 固定高度，两行文本 */
 }
 
 .dark .description-text {
@@ -984,6 +1020,7 @@ const tagsToString = (tags: string[]) => {
   gap: 0.5rem;
   align-items: flex-start;
   align-content: flex-start;
+  min-height: 28px; /* 固定标签区域高度 */
   margin-bottom: 0.5rem;
 }
 
@@ -992,6 +1029,8 @@ const tagsToString = (tags: string[]) => {
   font-size: 0.75rem;
   padding: 2px 8px;
   font-weight: 500;
+  height: 24px;
+  line-height: 20px;
 }
 
 /* 操作按钮区域 */
@@ -1011,6 +1050,8 @@ const tagsToString = (tags: string[]) => {
   align-items: center;
   justify-content: center;
 }
+
+
 
 /* 卡片头部样式 */
 .kb-card-header {

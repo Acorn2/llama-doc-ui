@@ -1,32 +1,34 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { 
+  Document, Collection, ChatDotRound, Refresh, Lightning, Clock, ArrowRight,
+  DocumentCopy, FolderOpen, FolderAdd, ChatLineRound, DataAnalysis, UploadFilled
+} from '@element-plus/icons-vue'
 import { UserAPI } from '@/api/modules/user'
+import { api } from '@/api'
 import { isAuthenticated } from '@/utils/auth'
+
+const router = useRouter()
 
 // 统计数据
 const stats = ref([
   {
     title: '文档总数',
     value: '0',
-    change: '+0%',
-    changeType: 'increase',
     icon: 'Document',
     color: 'blue'
   },
   {
     title: '知识库数量',
     value: '0',
-    change: '+0%',
-    changeType: 'increase', 
     icon: 'Collection',
     color: 'green'
   },
   {
     title: '今日对话',
     value: '0',
-    change: '+0%',
-    changeType: 'increase',
     icon: 'ChatDotRound',
     color: 'purple'
   }
@@ -35,10 +37,10 @@ const stats = ref([
 // 快捷操作
 const quickActions = ref([
   {
-    title: '上传文档',
-    description: '上传新的PDF文档进行分析',
-    icon: 'UploadFilled',
-    action: 'upload',
+    title: '文档管理',
+    description: '管理和查看您的文档',
+    icon: 'FolderOpen',
+    action: 'documents',
     color: 'blue'
   },
   {
@@ -81,39 +83,39 @@ const fetchDashboardStats = async () => {
   
   try {
     statsLoading.value = true
-    const result = await UserAPI.getDashboardStats({ period: '30d' })
+    const response = await api.get('/api/v1/users/dashboard/stats')
     
-    if (result.success) {
-      const data = result.data
-      
-      // 更新统计数据
-      stats.value[0] = {
-        title: '文档总数',
-        value: data.document_stats.total.toLocaleString(),
-        change: `${data.document_stats.growth_rate > 0 ? '+' : ''}${(data.document_stats.growth_rate * 100).toFixed(1)}%`,
-        changeType: data.document_stats.growth_rate >= 0 ? 'increase' : 'decrease',
-        icon: 'Document',
-        color: 'blue'
-      }
-      
-      stats.value[1] = {
-        title: '知识库数量',
-        value: data.knowledge_base_stats.total.toLocaleString(),
-        change: `${data.knowledge_base_stats.growth_rate > 0 ? '+' : ''}${(data.knowledge_base_stats.growth_rate * 100).toFixed(1)}%`,
-        changeType: data.knowledge_base_stats.growth_rate >= 0 ? 'increase' : 'decrease',
-        icon: 'Collection',
-        color: 'green'
-      }
-      
-      stats.value[2] = {
-        title: '今日对话',
-        value: data.conversation_stats.today.toLocaleString(),
-        change: `${data.conversation_stats.growth_rate > 0 ? '+' : ''}${(data.conversation_stats.growth_rate * 100).toFixed(1)}%`,
-        changeType: data.conversation_stats.growth_rate >= 0 ? 'increase' : 'decrease',
-        icon: 'ChatDotRound',
-        color: 'purple'
-      }
+    console.log('API完整响应:', response.data)
+    
+    // 根据API返回的嵌套结构访问数据
+    const data = response.data.data || response.data
+    
+    console.log('提取的统计数据:', data)
+    
+    // 更新统计数据 - 根据实际API返回的数据结构
+    stats.value[0] = {
+      title: '文档总数',
+      value: data.document_count?.toLocaleString() || '0',
+      icon: 'Document',
+      color: 'blue'
     }
+    
+    stats.value[1] = {
+      title: '知识库数量',
+      value: data.knowledge_base_count?.toLocaleString() || '0',
+      icon: 'Collection',
+      color: 'green'
+    }
+    
+    stats.value[2] = {
+      title: '今日对话',
+      value: data.today_conversations?.toLocaleString() || '0',
+      icon: 'ChatDotRound',
+      color: 'purple'
+    }
+    
+    console.log('更新后的stats:', stats.value)
+    
   } catch (error: any) {
     console.error('获取仪表板统计数据失败:', error)
     const errorMessage = error.response?.data?.detail || error.message || '获取统计数据失败，请稍后重试'
@@ -208,21 +210,21 @@ const refreshData = async () => {
 // 处理快捷操作点击
 const handleQuickAction = (action: string) => {
   switch (action) {
-    case 'upload':
+    case 'documents':
       // 跳转到文档管理页面
-      ElMessage.info('跳转到文档管理页面')
+      router.push('/documents')
       break
     case 'create-kb':
       // 跳转到知识库页面
-      ElMessage.info('跳转到知识库管理页面')
+      router.push('/knowledge-base')
       break
     case 'chat':
-      // 跳转到聊天页面
-      ElMessage.info('跳转到智能对话页面')
+      // 跳转到知识库页面（开始对话）
+      router.push('/knowledge-base')
       break
     case 'analysis':
       // 跳转到分析页面
-      ElMessage.info('跳转到AI分析页面')
+      router.push('/agent')
       break
   }
 }
@@ -291,19 +293,9 @@ onMounted(() => {
               </div>
               <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ stat.title }}</h3>
             </div>
-            <div class="flex items-end space-x-2">
+            <div class="flex items-end">
               <span class="text-3xl font-bold text-gray-900 dark:text-white">
                 {{ stat.value }}
-              </span>
-              <span 
-                :class="[
-                  'text-sm px-2 py-1 rounded-lg font-medium mb-1',
-                  stat.changeType === 'increase' 
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                ]"
-              >
-                {{ stat.change }}
               </span>
             </div>
           </div>

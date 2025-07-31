@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Search, RefreshLeft, Document, Star, StarFilled } from '@element-plus/icons-vue'
 import { KnowledgeBaseAPI, type KnowledgeBase, type PublicKnowledgeBaseQuery } from '@/api/modules/knowledge-base'
 import { useUserStore } from '@/store/modules/user'
 
@@ -16,18 +18,6 @@ const pageSize = ref(12)
 
 // 搜索和过滤
 const searchQuery = ref('')
-const selectedTags = ref<string[]>([])
-const sortBy = ref<'create_time' | 'view_count' | 'like_count'>('create_time')
-const sortOrder = ref<'asc' | 'desc'>('desc')
-
-// 所有可用的标签（从数据中提取）
-const allTags = computed(() => {
-  const tagSet = new Set<string>()
-  knowledgeBases.value.forEach(kb => {
-    kb.tags.forEach(tag => tagSet.add(tag))
-  })
-  return Array.from(tagSet)
-})
 
 // 分页信息
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
@@ -40,16 +30,12 @@ const loadKnowledgeBases = async () => {
     const query: PublicKnowledgeBaseQuery = {
       page: currentPage.value,
       page_size: pageSize.value,
-      sort_by: sortBy.value,
-      sort_order: sortOrder.value
+      sort_by: 'create_time',
+      sort_order: 'desc'
     }
     
     if (searchQuery.value.trim()) {
       query.search = searchQuery.value.trim()
-    }
-    
-    if (selectedTags.value.length > 0) {
-      query.tags = selectedTags.value.join(',')
     }
     
     const response = await KnowledgeBaseAPI.getPublicList(query)
@@ -74,19 +60,6 @@ const handleSearch = () => {
 // 清空搜索
 const clearSearch = () => {
   searchQuery.value = ''
-  selectedTags.value = []
-  currentPage.value = 1
-  loadKnowledgeBases()
-}
-
-// 切换排序
-const handleSortChange = (newSortBy: typeof sortBy.value) => {
-  if (sortBy.value === newSortBy) {
-    sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
-  } else {
-    sortBy.value = newSortBy
-    sortOrder.value = 'desc'
-  }
   currentPage.value = 1
   loadKnowledgeBases()
 }
@@ -174,9 +147,9 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 搜索和过滤 -->
+    <!-- 搜索 -->
     <el-card>
-      <div class="flex flex-col lg:flex-row gap-4">
+      <div class="flex gap-4">
         <!-- 搜索框 -->
         <div class="flex-1">
           <el-input
@@ -191,62 +164,6 @@ onMounted(() => {
               <el-button @click="handleSearch" :icon="Search">搜索</el-button>
             </template>
           </el-input>
-        </div>
-
-        <!-- 标签过滤 -->
-        <div class="lg:w-80">
-          <el-select
-            v-model="selectedTags"
-            multiple
-            placeholder="选择标签过滤"
-            collapse-tags
-            collapse-tags-tooltip
-            @change="handleSearch"
-          >
-            <el-option
-              v-for="tag in allTags"
-              :key="tag"
-              :label="tag"
-              :value="tag"
-            />
-          </el-select>
-        </div>
-
-        <!-- 排序选择 -->
-        <div class="flex items-center space-x-2">
-          <span class="text-sm text-gray-600 dark:text-gray-400">排序:</span>
-          <el-button-group>
-            <el-button
-              :type="sortBy === 'create_time' ? 'primary' : 'default'"
-              size="small"
-              @click="handleSortChange('create_time')"
-            >
-              时间
-              <el-icon v-if="sortBy === 'create_time'">
-                <component :is="sortOrder === 'desc' ? 'ArrowDown' : 'ArrowUp'" />
-              </el-icon>
-            </el-button>
-            <el-button
-              :type="sortBy === 'view_count' ? 'primary' : 'default'"
-              size="small"
-              @click="handleSortChange('view_count')"
-            >
-              浏览
-              <el-icon v-if="sortBy === 'view_count'">
-                <component :is="sortOrder === 'desc' ? 'ArrowDown' : 'ArrowUp'" />
-              </el-icon>
-            </el-button>
-            <el-button
-              :type="sortBy === 'like_count' ? 'primary' : 'default'"
-              size="small"
-              @click="handleSortChange('like_count')"
-            >
-              点赞
-              <el-icon v-if="sortBy === 'like_count'">
-                <component :is="sortOrder === 'desc' ? 'ArrowDown' : 'ArrowUp'" />
-              </el-icon>
-            </el-button>
-          </el-button-group>
         </div>
 
         <el-button @click="clearSearch" :icon="RefreshLeft">清空</el-button>
@@ -276,11 +193,15 @@ onMounted(() => {
           <!-- 点赞按钮 -->
           <el-button
             :type="kb.is_liked ? 'primary' : 'default'"
-            :icon="kb.is_liked ? 'StarFilled' : 'Star'"
             size="small"
             circle
             @click.stop="handleLike(kb)"
-          />
+          >
+            <el-icon>
+              <StarFilled v-if="kb.is_liked" />
+              <Star v-else />
+            </el-icon>
+          </el-button>
         </div>
 
         <!-- 描述 -->
@@ -315,10 +236,6 @@ onMounted(() => {
             <span class="flex items-center space-x-1">
               <el-icon><Document /></el-icon>
               <span>{{ kb.document_count }}</span>
-            </span>
-            <span class="flex items-center space-x-1">
-              <el-icon><View /></el-icon>
-              <span>{{ formatCount(kb.view_count) }}</span>
             </span>
             <span class="flex items-center space-x-1">
               <el-icon><Star /></el-icon>
