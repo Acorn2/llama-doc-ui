@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import type { User, LoginCredentials, RegisterData, LoginResponse, UpdateUserData } from '@/types/user'
 import { userApi } from '@/api/user'
+import { UserAPI } from '@/api/modules/user'
 import { ElMessage } from 'element-plus'
 
 export const useUserStore = defineStore('user', () => {
@@ -138,6 +139,45 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 获取用户活动记录
+  const getUserActivities = async (params?: {
+    limit?: number
+    activity_type?: string
+  }) => {
+    try {
+      const response = await UserAPI.getActivities(params)
+      return response
+    } catch (error: any) {
+      const message = error.response?.data?.detail || error.message || '获取活动记录失败'
+      ElMessage.error(message)
+      throw error
+    }
+  }
+
+  // 获取用户活动统计
+  const getUserActivityStats = async (params?: { days?: number }) => {
+    try {
+      const response = await UserAPI.getActivityStats(params)
+      return response
+    } catch (error: any) {
+      const message = error.response?.data?.detail || error.message || '获取活动统计失败'
+      ElMessage.error(message)
+      throw error
+    }
+  }
+
+  // 获取仪表板统计数据
+  const getDashboardStats = async (params?: { period?: '7d' | '30d' | '90d' }) => {
+    try {
+      const response = await UserAPI.getDashboardStats(params)
+      return response
+    } catch (error: any) {
+      const message = error.response?.data?.detail || error.message || '获取仪表板统计失败'
+      ElMessage.error(message)
+      throw error
+    }
+  }
+
   // 检查用户权限
   const hasPermission = (permission: string): boolean => {
     if (!user.value) return false
@@ -167,6 +207,9 @@ export const useUserStore = defineStore('user', () => {
     getCurrentUser,
     updateUser,
     refreshToken,
+    getUserActivities,
+    getUserActivityStats,
+    getDashboardStats,
     hasPermission
   }
 }) 

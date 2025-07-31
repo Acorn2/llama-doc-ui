@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/store/modules/user'
 import type { UpdateUserData } from '@/types/user'
+import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()
 
@@ -64,16 +65,28 @@ const profileFormRef = ref()
 const passwordFormRef = ref()
 const profileLoading = ref(false)
 const passwordLoading = ref(false)
+const pageLoading = ref(true)
+const userActivities = ref<any[]>([])
+const activityStats = ref<any>(null)
 
 // 初始化表单数据
-const initializeForm = () => {
-  if (userStore.user) {
-    const user = userStore.user
-    profileForm.username = user.username || ''
-    profileForm.email = user.email || ''
-    profileForm.phone = user.phone || ''
-    profileForm.full_name = user.full_name || ''
-    profileForm.avatar_url = user.avatar_url || ''
+const initializeForm = async () => {
+  try {
+    // 如果没有用户信息，先获取当前用户信息
+    if (!userStore.user) {
+      await userStore.getCurrentUser()
+    }
+    
+    if (userStore.user) {
+      const user = userStore.user
+      profileForm.username = user.username || ''
+      profileForm.email = user.email || ''
+      profileForm.phone = user.phone || ''
+      profileForm.full_name = user.full_name || ''
+      profileForm.avatar_url = user.avatar_url || ''
+    }
+  } catch (error) {
+    console.error('初始化用户信息失败:', error)
   }
 }
 
@@ -94,10 +107,17 @@ const updateProfile = async () => {
       }
     })
     
+    if (Object.keys(updateData).length === 0) {
+      ElMessage.warning('没有需要更新的信息')
+      return
+    }
+    
     await userStore.updateUser(updateData)
+    ElMessage.success('个人信息更新成功')
     
   } catch (error) {
     console.error('更新个人信息失败:', error)
+    ElMessage.error('更新个人信息失败，请稍后重试')
   } finally {
     profileLoading.value = false
   }
@@ -118,23 +138,103 @@ const updatePassword = async () => {
     passwordForm.confirmPassword = ''
     passwordFormRef.value.resetFields()
     
+    ElMessage.success('密码修改成功')
+    
   } catch (error) {
     console.error('修改密码失败:', error)
+    ElMessage.error('修改密码失败，请稍后重试')
   } finally {
     passwordLoading.value = false
   }
 }
 
-// 处理头像上传
-const handleAvatarUpload = (response: any) => {
-  // 这里处理头像上传的响应
-  if (response.url) {
-    profileForm.avatar_url = response.url
+// 处理头像文件选择
+const handleAvatarChange = (file: any) => {
+  // 简单的文件预览，实际项目中需要上传到服务器
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    profileForm.avatar_url = e.target?.result as string
+  }
+  reader.readAsDataURL(file.raw)
+}
+
+// 加载用户活动记录
+const loadUserActivities = async () => {
+  try {
+    const activities = await userStore.getUserActivities({ limit: 10 })
+    userActivities.value = activities
+  } catch (error) {
+    console.error('加载用户活动失败:', error)
   }
 }
 
-onMounted(() => {
-  initializeForm()
+// 加载活动统计
+const loadActivityStats = async () => {
+  try {
+    const stats = await userStore.getUserActivityStats({ days: 30 })
+    activityStats.value = stats.data
+  } catch (error) {
+    console.error('加载活动统计失败:', error)
+  }
+}
+
+// 获取活动类型中文名称
+const getActivityTypeName = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    'user_login': '用户登录',
+    'user_logout': '用户登出',
+    'user_register': '用户注册',
+    'document_upload': '文档上传',
+    'document_delete': '文档删除',
+    'document_view': '文档查看',
+    'kb_create': '创建知识库',
+    'kb_update': '更新知识库',
+    'kb_delete': '删除知识库',
+    'kb_view': '查看知识库',
+    'kb_like': '点赞知识库',
+    'conversation_create': '创建对话',
+    'conversation_chat': '进行对话',
+    'agent_chat': 'Agent对话',
+    'agent_analyze': 'Agent分析',
+    'agent_search': 'Agent搜索',
+    'agent_summary': 'Agent摘要'
+  }
+  return typeMap[type] || type
+}
+
+// 刷新数据
+const refreshData = async () => {
+  try {
+    pageLoading.value = true
+    await Promise.all([
+      initializeForm(),
+      loadUserActivities(),
+      loadActivityStats()
+    ])
+    ElMessage.success('数据刷新成功')
+  } catch (error) {
+    console.error('刷新数据失败:', error)
+    ElMessage.error('刷新数据失败，请稍后重试')
+  } finally {
+    pageLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  try {
+    pageLoading.value = true
+    await initializeForm()
+    
+    // 并行加载用户活动和统计数据
+    await Promise.all([
+      loadUserActivities(),
+      loadActivityStats()
+    ])
+  } catch (error) {
+    console.error('页面初始化失败:', error)
+  } finally {
+    pageLoading.value = false
+  }
 })
 </script>
 
@@ -150,9 +250,25 @@ onMounted(() => {
           管理您的个人信息和账户设置
         </p>
       </div>
+      <el-button 
+        @click="refreshData" 
+        :loading="pageLoading"
+        type="primary" 
+        plain
+      >
+        {{ pageLoading ? '刷新中...' : '刷新数据' }}
+      </el-button>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- 页面加载状态 -->
+    <div v-if="pageLoading" class="flex justify-center items-center py-12">
+      <el-icon class="is-loading" size="32">
+        <Loading />
+      </el-icon>
+      <span class="ml-2 text-gray-600 dark:text-gray-400">加载中...</span>
+    </div>
+
+    <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- 基本信息 -->
       <el-card>
         <template #header>
@@ -181,10 +297,10 @@ onMounted(() => {
               </el-avatar>
               <div>
                 <el-upload
-                  :action="`${$api.baseURL}/api/v1/upload/avatar`"
-                  :headers="{ Authorization: `Bearer ${userStore.token}` }"
+                  action="#"
+                  :auto-upload="false"
                   :show-file-list="false"
-                  :on-success="handleAvatarUpload"
+                  :on-change="handleAvatarChange"
                   accept="image/*"
                 >
                   <el-button size="small">更换头像</el-button>
@@ -327,6 +443,90 @@ onMounted(() => {
             <div class="flex justify-between items-center" v-if="userStore.user.is_superuser">
               <span class="text-gray-600 dark:text-gray-400">用户类型:</span>
               <el-tag type="warning">超级用户</el-tag>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 最近活动 -->
+        <el-card>
+          <template #header>
+            <div class="flex items-center space-x-2">
+              <el-icon class="text-purple-500"><Clock /></el-icon>
+              <span class="font-semibold">最近活动</span>
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <div v-if="userActivities.length === 0" class="text-center py-4">
+              <el-icon size="32" class="text-gray-400"><DocumentCopy /></el-icon>
+              <p class="text-gray-500 dark:text-gray-400 mt-2">暂无活动记录</p>
+            </div>
+            
+            <div v-else>
+              <div 
+                v-for="activity in userActivities.slice(0, 5)" 
+                :key="activity.id"
+                class="flex items-start space-x-3 py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+              >
+                <div class="flex-shrink-0 mt-1">
+                  <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-gray-900 dark:text-white">
+                    {{ activity.activity_description }}
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ new Date(activity.create_time).toLocaleString() }}
+                  </p>
+                </div>
+              </div>
+              
+              <div class="pt-3 text-center" v-if="userActivities.length > 5">
+                <el-button size="small" text type="primary">
+                  查看更多活动
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 活动统计 -->
+        <el-card v-if="activityStats">
+          <template #header>
+            <div class="flex items-center space-x-2">
+              <el-icon class="text-green-500"><DataAnalysis /></el-icon>
+              <span class="font-semibold">活动统计</span>
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600">
+                  {{ activityStats.total_activities }}
+                </div>
+                <div class="text-sm text-gray-500">总活动数</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-600">
+                  {{ activityStats.period_days }}
+                </div>
+                <div class="text-sm text-gray-500">统计天数</div>
+              </div>
+            </div>
+            
+            <div v-if="activityStats.activity_by_type" class="space-y-2">
+              <h4 class="text-sm font-medium text-gray-900 dark:text-white">
+                活动类型分布
+              </h4>
+              <div 
+                v-for="(count, type) in activityStats.activity_by_type" 
+                :key="type"
+                class="flex justify-between items-center text-sm"
+              >
+                <span class="text-gray-600 dark:text-gray-400">{{ getActivityTypeName(type) }}</span>
+                <span class="font-medium">{{ count }}</span>
+              </div>
             </div>
           </div>
         </el-card>

@@ -6,7 +6,19 @@ export interface AnalysisRequest {
   analysis_type?: 'document' | 'concept' | 'trend'
 }
 
+// 实际的后端响应结构
 export interface AnalysisResponse {
+  success: boolean
+  data: {
+    analysis: string
+    processing_time: number
+    query: string
+    error: string | null
+  }
+}
+
+// 兼容旧版本的响应结构
+export interface LegacyAnalysisResponse {
   analysis_id: string
   result: string
   confidence: number
@@ -35,9 +47,12 @@ export interface SearchResult {
 }
 
 export interface SearchResponse {
-  results: SearchResult[]
-  total: number
-  processing_time: number
+  success: boolean
+  data: {
+    results: SearchResult[]
+    total: number
+    processing_time: number
+  }
 }
 
 export interface SummaryRequest {
@@ -46,29 +61,38 @@ export interface SummaryRequest {
 }
 
 export interface SummaryResponse {
-  summary_id: string
-  content: string
-  key_topics: string[]
-  document_count: number
-  processing_time: number
+  success: boolean
+  data: {
+    summary_id: string
+    content: string
+    key_topics: string[]
+    document_count: number
+    processing_time: number
+  }
 }
 
 export class AgentAPI {
-  // 智能分析
+  // 智能分析 - 使用更长的超时时间
   static async analyze(data: AnalysisRequest): Promise<AnalysisResponse> {
-    const response = await api.post('/api/v1/agent/analyze', data)
+    const response = await api.post('/api/v1/agent/analyze', data, {
+      timeout: 300000 // 5分钟超时，适应复杂的AI分析任务
+    })
     return response.data
   }
 
   // 智能搜索
   static async search(data: SearchRequest): Promise<SearchResponse> {
-    const response = await api.post('/api/v1/agent/search', data)
+    const response = await api.post('/api/v1/agent/search', data, {
+      timeout: 180000 // 3分钟超时
+    })
     return response.data
   }
 
-  // 生成摘要
+  // 生成摘要 - 使用更长的超时时间
   static async generateSummary(data: SummaryRequest): Promise<SummaryResponse> {
-    const response = await api.post('/api/v1/agent/summary', data)
+    const response = await api.post('/api/v1/agent/summary', data, {
+      timeout: 240000 // 4分钟超时
+    })
     return response.data
   }
 
