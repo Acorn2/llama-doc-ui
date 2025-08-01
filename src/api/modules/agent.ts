@@ -49,9 +49,11 @@ export interface SearchResult {
 export interface SearchResponse {
   success: boolean
   data: {
-    results: SearchResult[]
-    total: number
+    results: string | SearchResult[] // 后端可能返回字符串或数组
+    query: string
     processing_time: number
+    error: string | null
+    total?: number
   }
 }
 

@@ -17,6 +17,15 @@ const searchResults = ref<Array<{
   relevance: number
   source: string
   kb_name?: string
+  // 新增字段
+  document_name?: string
+  document_id?: string
+  chunk_index?: number
+  file_type?: string
+  upload_time?: string
+  quality_score?: number
+  keywords?: string[]
+  summary?: string
 }>>([])
 const summaryResult = ref('')
 
@@ -84,6 +93,64 @@ const clearSearchResults = () => {
 // 清空摘要结果
 const clearSummaryResult = () => {
   summaryResult.value = ''
+}
+
+// 解析搜索结果字符串
+const parseSearchResults = (resultsText: string, query: string) => {
+  const results = []
+  
+  // 按照 "结果：数字:" 的格式分割结果
+  const resultPattern = /结果：(\d+):\s*(.*?)(?=结果：\d+:|$)/gs
+  let match
+  let index = 1
+  
+  while ((match = resultPattern.exec(resultsText)) !== null) {
+    const [, resultNum, content] = match
+    
+    // 清理内容，移除多余的换行和空格
+    const cleanContent = content.trim().replace(/\n+/g, '\n').replace(/\s+/g, ' ')
+    
+    results.push({
+      id: `search-result-${index}`,
+      title: `关于"${query}"的搜索结果 ${resultNum}`,
+      content: cleanContent,
+      relevance: Math.max(0.5, 1 - (index - 1) * 0.1), // 模拟相关度，第一个结果最高
+      source: `知识库文档片段 ${resultNum}`
+    })
+    
+    index++
+  }
+  
+  // 如果没有匹配到标准格式，尝试其他可能的分割方式
+  if (results.length === 0 && resultsText.trim()) {
+    // 尝试按段落分割
+    const paragraphs = resultsText.split(/\n\s*\n/).filter(p => p.trim())
+    
+    if (paragraphs.length > 1) {
+      paragraphs.forEach((paragraph, idx) => {
+        if (paragraph.trim()) {
+          results.push({
+            id: `search-result-${idx + 1}`,
+            title: `关于"${query}"的搜索结果 ${idx + 1}`,
+            content: paragraph.trim(),
+            relevance: Math.max(0.5, 1 - idx * 0.1),
+            source: `知识库文档片段 ${idx + 1}`
+          })
+        }
+      })
+    } else {
+      // 将整个文本作为一个结果
+      results.push({
+        id: 'search-result-1',
+        title: `关于"${query}"的搜索结果`,
+        content: resultsText.trim(),
+        relevance: 0.8,
+        source: '知识库搜索结果'
+      })
+    }
+  }
+  
+  return results
 }
 
 // 智能分析
@@ -189,20 +256,52 @@ const handleSearch = async () => {
     
     console.log('API返回的搜索数据:', response)
     
-    // 根据实际返回的数据结构处理
+    // 根据新的数据结构处理搜索结果
     const searchData = response.data || response
-    const results = searchData.results || []
     
-    // 为搜索结果添加知识库名称
-    searchResults.value = results.map(result => ({
-      ...result,
-      kb_name: selectedKBInfo.value?.name
-    }))
-    
-    if (searchResults.value.length === 0) {
-      ElMessage.info('未找到相关内容，请尝试其他关键词')
+    if (searchData.results && Array.isArray(searchData.results)) {
+      // 处理新的数组格式数据
+      searchResults.value = searchData.results.map((result, index) => ({
+        id: `search-result-${index + 1}`,
+        title: `搜索结果 ${result.index || index + 1}`,
+        content: result.content || '',
+        relevance: result.similarity_score || 0,
+        source: result.source?.document_name || '未知来源',
+        kb_name: selectedKBInfo.value?.name,
+        // 新增字段
+        document_name: result.source?.document_name || '',
+        document_id: result.source?.document_id || '',
+        chunk_index: result.source?.chunk_index || 0,
+        file_type: result.source?.file_type || '',
+        upload_time: result.source?.upload_time || '',
+        quality_score: result.metadata?.quality_score || 0,
+        keywords: result.metadata?.keywords || [],
+        summary: result.metadata?.summary || ''
+      }))
+      
+      if (searchResults.value.length === 0) {
+        ElMessage.info('未找到相关内容，请尝试其他关键词')
+      } else {
+        ElMessage.success(`找到 ${searchResults.value.length} 个相关结果`)
+      }
+    } else if (searchData.results && typeof searchData.results === 'string') {
+      // 兼容旧的字符串格式
+      const resultsText = searchData.results
+      const parsedResults = parseSearchResults(resultsText, searchData.query)
+      
+      searchResults.value = parsedResults.map(result => ({
+        ...result,
+        kb_name: selectedKBInfo.value?.name
+      }))
+      
+      if (searchResults.value.length === 0) {
+        ElMessage.info('未找到相关内容，请尝试其他关键词')
+      } else {
+        ElMessage.success(`找到 ${searchResults.value.length} 个相关结果`)
+      }
     } else {
-      ElMessage.success(`找到 ${searchData.total || results.length} 个相关结果`)
+      searchResults.value = []
+      ElMessage.info('未找到相关内容，请尝试其他关键词')
     }
     
   } catch (error: any) {
@@ -219,6 +318,28 @@ const handleSearch = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 格式化上传时间
+const formatUploadTime = (timeStr: string) => {
+  try {
+    const date = new Date(timeStr)
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  } catch {
+    return '未知时间'
+  }
+}
+
+// 根据相似度获取颜色
+const getSimilarityColor = (score: number) => {
+  if (score >= 0.8) return '#67c23a' // 绿色 - 高相关度
+  if (score >= 0.6) return '#e6a23c' // 橙色 - 中等相关度
+  if (score >= 0.4) return '#f56c6c' // 红色 - 低相关度
+  return '#909399' // 灰色 - 很低相关度
 }
 
 // 生成摘要
@@ -245,26 +366,27 @@ const generateSummary = async () => {
     // 根据实际返回的数据结构处理
     const summaryData = response.data || response
     
-    // 格式化摘要结果
-    let formattedSummary = `知识库"${selectedKBInfo.value?.name}"的AI智能摘要
+    // 格式化摘要结果为Markdown格式
+    let formattedSummary = `# 知识库"${selectedKBInfo.value?.name}"的AI智能摘要
 
-📚 知识库概览
-• 名称：${selectedKBInfo.value?.name}
-• 描述：${selectedKBInfo.value?.description || '暂无描述'}
-• 文档总数：${summaryData.document_count || selectedKBInfo.value?.document_count || '未知'} 个
-• 类型：${selectedKBInfo.value?.is_public ? '公开知识库' : '私有知识库'}
-• 摘要ID：${summaryData.summary_id || '未知'}
-• 处理时间：${summaryData.processing_time ? (summaryData.processing_time * 1000).toFixed(0) + 'ms' : '未知'}
+## 📚 知识库概览
+- **名称**：${selectedKBInfo.value?.name}
+- **描述**：${selectedKBInfo.value?.description || '暂无描述'}
+- **文档总数**：${summaryData.document_count || selectedKBInfo.value?.document_count || '未知'} 个
+- **类型**：${selectedKBInfo.value?.is_public ? '公开知识库' : '私有知识库'}
+- **摘要ID**：${summaryData.summary_id || '未知'}
+- **处理时间**：${summaryData.processing_time ? (summaryData.processing_time * 1000).toFixed(0) + 'ms' : '未知'}
 
-📖 AI生成的内容摘要
+## 📖 AI生成的内容摘要
+
 ${summaryData.content || summaryData.summary || '暂无摘要内容'}
 
-🏷️ 关键主题`
+## 🏷️ 关键主题`
     
     if (summaryData.key_topics && summaryData.key_topics.length > 0) {
       formattedSummary += '\n'
       summaryData.key_topics.forEach((topic, index) => {
-        formattedSummary += `\n• ${topic}`
+        formattedSummary += `\n- ${topic}`
       })
     } else {
       formattedSummary += '\n暂无关键主题信息'
@@ -272,12 +394,12 @@ ${summaryData.content || summaryData.summary || '暂无摘要内容'}
     
     formattedSummary += `
 
-💡 使用建议
-• 建议结合智能搜索功能深入探索特定主题
-• 可使用智能分析功能获得更专业的见解
-• 定期查看知识库更新以获取最新信息
+## 💡 使用建议
+- 建议结合智能搜索功能深入探索特定主题
+- 可使用智能分析功能获得更专业的见解
+- 定期查看知识库更新以获取最新信息
 
-此摘要基于AI对知识库全部内容的理解和分析生成。`
+*此摘要基于AI对知识库全部内容的理解和分析生成。*`
     
     summaryResult.value = formattedSummary
     ElMessage.success('摘要生成完成')
@@ -309,51 +431,52 @@ ${summaryData.content || summaryData.summary || '暂无摘要内容'}
     <!-- 知识库选择器 -->
     <el-card class="mb-6">
       <template #header>
-        <div class="flex items-center space-x-2">
-          <el-icon class="text-purple-600"><Collection /></el-icon>
-          <span class="font-semibold">选择知识库</span>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <el-icon class="text-purple-600"><Collection /></el-icon>
+            <span class="font-semibold">选择知识库</span>
+          </div>
+          <el-button
+            @click="loadKnowledgeBases"
+            :loading="kbLoading"
+            size="small"
+            type="primary"
+            :icon="kbLoading ? 'Loading' : 'Refresh'"
+          >
+            {{ kbLoading ? '加载中' : '刷新' }}
+          </el-button>
         </div>
       </template>
       
       <div class="space-y-4">
-        <div class="flex space-x-2">
-          <el-select
-            v-model="selectedKnowledgeBase"
-            placeholder="请选择要分析的知识库..."
-            size="large"
-            style="flex: 1"
-            :loading="kbLoading"
-            @change="handleKnowledgeBaseChange"
-            filterable
+        <el-select
+          v-model="selectedKnowledgeBase"
+          placeholder="请选择要分析的知识库..."
+          size="large"
+          :loading="kbLoading"
+          @change="handleKnowledgeBaseChange"
+          filterable
+          style="width: 100%"
+          :disabled="kbLoading || knowledgeBases.length === 0"
+        >
+          <el-option
+            v-for="kb in knowledgeBases"
+            :key="kb.id"
+            :label="kb.name"
+            :value="kb.id"
           >
-            <el-option
-              v-for="kb in knowledgeBases"
-              :key="kb.id"
-              :label="kb.name"
-              :value="kb.id"
-            >
-              <div class="flex justify-between items-center">
-                <div>
-                  <div class="font-medium">{{ kb.name }}</div>
-                  <div class="text-sm text-gray-500">{{ kb.description }}</div>
-                </div>
-                <div class="text-sm text-gray-400">
-                  {{ kb.document_count }} 个文档
-                </div>
+            <div class="flex justify-between items-center">
+              <div>
+                <div class="font-medium">{{ kb.name }}</div>
+                <div class="text-sm text-gray-500">{{ kb.description || '暂无描述' }}</div>
               </div>
-            </el-option>
-          </el-select>
-          
-          <el-button
-            @click="loadKnowledgeBases"
-            :loading="kbLoading"
-            size="large"
-            type="primary"
-            plain
-          >
-            {{ kbLoading ? '加载中...' : '刷新' }}
-          </el-button>
-        </div>
+              <div class="text-sm text-gray-400 flex items-center space-x-2">
+                <span>{{ kb.document_count }} 个文档</span>
+                <el-tag v-if="kb.is_public" size="small" type="success">公开</el-tag>
+              </div>
+            </div>
+          </el-option>
+        </el-select>
         
         <!-- 已选择的知识库信息 -->
         <div v-if="hasSelectedKB" class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
@@ -526,28 +649,63 @@ ${summaryData.content || summaryData.summary || '暂无摘要内容'}
               </div>
               
               <div v-for="result in searchResults" :key="result.id" class="result-item">
-                <el-card>
-                  <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                      <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-2">
-                        {{ result.title }}
-                      </h4>
-                      <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                        {{ result.content }}
-                      </p>
-                      <div class="flex items-center space-x-4 text-xs text-gray-500">
-                        <span>来源: {{ result.source }}</span>
-                        <span>知识库: {{ result.kb_name }}</span>
-                        <span>相关度: {{ (result.relevance * 100).toFixed(0) }}%</span>
+                <el-card class="search-result-card">
+                  <div class="result-header">
+                    <div class="result-meta">
+                      <div class="document-info">
+                        <el-icon class="document-icon"><Document /></el-icon>
+                        <span class="document-name">{{ result.document_name || result.source }}</span>
+                        <el-tag v-if="result.file_type" size="small" type="info">{{ result.file_type.toUpperCase() }}</el-tag>
+                      </div>
+                      <div class="similarity-score">
+                        <el-progress 
+                          type="circle" 
+                          :percentage="Math.round(result.relevance * 100)"
+                          :width="45"
+                          :show-text="false"
+                          :color="getSimilarityColor(result.relevance)"
+                        />
+                        <span class="score-text">{{ Math.round(result.relevance * 100) }}%</span>
                       </div>
                     </div>
-                    <div class="ml-4">
-                      <el-progress 
-                        type="circle" 
-                        :percentage="result.relevance * 100"
-                        :width="50"
-                        :show-text="false"
-                      />
+                  </div>
+                  
+                  <div class="result-content">
+                    <div class="content-text">
+                      <MarkdownRenderer :content="result.content" />
+                    </div>
+                  </div>
+                  
+                  <div class="result-footer">
+                    <div class="footer-info">
+                      <div class="info-item">
+                        <el-icon><Collection /></el-icon>
+                        <span>{{ result.kb_name }}</span>
+                      </div>
+                      <div class="info-item" v-if="result.chunk_index !== undefined">
+                        <el-icon><Grid /></el-icon>
+                        <span>片段 #{{ result.chunk_index + 1 }}</span>
+                      </div>
+                      <div class="info-item" v-if="result.quality_score">
+                        <el-icon><Star /></el-icon>
+                        <span>质量: {{ Math.round(result.quality_score * 100) }}%</span>
+                      </div>
+                      <div class="info-item" v-if="result.upload_time">
+                        <el-icon><Clock /></el-icon>
+                        <span>{{ formatUploadTime(result.upload_time) }}</span>
+                      </div>
+                    </div>
+                    
+                    <div class="keywords" v-if="result.keywords && result.keywords.length > 0">
+                      <el-tag 
+                        v-for="keyword in result.keywords.slice(0, 3)" 
+                        :key="keyword" 
+                        size="small" 
+                        type="warning"
+                        class="keyword-tag"
+                      >
+                        {{ keyword }}
+                      </el-tag>
                     </div>
                   </div>
                 </el-card>
@@ -618,7 +776,7 @@ ${summaryData.content || summaryData.summary || '暂无摘要内容'}
                 </el-button>
               </div>
               <el-card class="summary-result">
-                <pre class="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">{{ summaryResult }}</pre>
+                <MarkdownRenderer :content="summaryResult" />
               </el-card>
             </div>
           </div>
@@ -643,12 +801,737 @@ ${summaryData.content || summaryData.summary || '暂无摘要内容'}
   background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
 }
 
+/* 基础样式优化 */
+.agent-page :deep(.el-select .el-input__wrapper) {
+  min-height: 48px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.agent-page :deep(.el-select .el-input__wrapper:hover) {
+  border-color: #3b82f6;
+}
+
+.agent-page :deep(.el-select .el-input__wrapper.is-focus) {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.agent-page :deep(.el-select .el-input__inner) {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* 高级知识库选择器样式 */
+.premium-kb-selector {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.premium-kb-selector::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+}
+
+.premium-kb-selector:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 10px 25px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+/* 选择器头部 */
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.header-icon .icon {
+  font-size: 24px;
+  color: white;
+}
+
+.header-text .title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.025em;
+}
+
+.header-text .subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.refresh-action-btn {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.refresh-action-btn:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  transform: rotate(180deg);
+}
+
+/* 选择器主体 */
+.selector-body {
+  position: relative;
+}
+
+.custom-select-container {
+  position: relative;
+}
+
+/* 自定义触发器 */
+.custom-select-trigger {
+  min-height: 80px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.custom-select-trigger::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s ease;
+}
+
+.custom-select-trigger:hover::before {
+  left: 100%;
+}
+
+.custom-select-trigger:hover {
+  border-color: #3b82f6;
+  box-shadow: 
+    0 8px 25px -8px rgba(59, 130, 246, 0.3),
+    0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+.custom-select-trigger.is-active {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
+  box-shadow: 
+    0 4px 12px -4px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.custom-select-trigger.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: #f8fafc;
+}
+
+.trigger-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 占位符内容 */
+.placeholder-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.placeholder-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 18px;
+}
+
+.placeholder-text .main-text {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 2px;
+}
+
+.placeholder-text .sub-text {
+  display: block;
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* 已选择内容 */
+.selected-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.selected-avatar {
+  position: relative;
+}
+
+.avatar-bg {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.selected-info {
+  flex: 1;
+}
+
+.selected-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+  letter-spacing: -0.025em;
+}
+
+.selected-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.doc-count {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.public-badge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* 触发器箭头 */
+.trigger-arrow {
+  margin-left: 16px;
+}
+
+.arrow-icon {
+  font-size: 16px;
+  color: #94a3b8;
+  transition: all 0.3s ease;
+}
+
+.arrow-icon.is-loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 已选择知识库信息样式 */
+.selected-kb-info {
+  margin-top: 20px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.selected-kb-info:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.info-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.info-icon {
+  font-size: 20px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.info-text {
+  flex: 1;
+}
+
+.info-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 2px;
+}
+
+.info-subtitle {
+  font-size: 12px;
+  color: #1d4ed8;
+  opacity: 0.8;
+}
+
+/* 空状态知识库信息样式 */
+.empty-kb-info {
+  margin-top: 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.empty-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-warning-icon {
+  font-size: 20px;
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+
+.empty-subtitle {
+  font-size: 12px;
+  color: #a16207;
+  opacity: 0.9;
+}
+
+/* 隐藏的选择器 */
+.hidden-select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hidden-select :deep(.el-input) {
+  height: 100%;
+}
+
+.hidden-select :deep(.el-input__wrapper) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* 高级下拉框样式 */
+:deep(.premium-kb-dropdown) {
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  max-width: 500px;
+  min-width: 400px;
+}
+
+:deep(.premium-kb-dropdown .el-scrollbar__view) {
+  padding: 0;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 8px 0;
+}
+
+.empty-hint {
+  font-size: 14px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* 高级选项样式 */
+:deep(.premium-option) {
+  padding: 0 !important;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+:deep(.premium-option:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.premium-option:hover) {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  transform: translateX(4px);
+}
+
+:deep(.premium-option.selected) {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+  border: 1px solid #3b82f6;
+}
+
+.option-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+}
+
+.option-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-circle {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+}
+
+.avatar-circle.is-public {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.option-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.option-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.option-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.doc-badge {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.option-description {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.option-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.stat-icon {
+  font-size: 12px;
+}
+
+/* 搜索结果样式优化 */
+.search-result-card {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.search-result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+}
+
+.result-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.result-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.document-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.document-icon {
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.document-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 14px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.similarity-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.result-content {
+  padding: 16px 20px;
+}
+
+.content-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.content-text :deep(.markdown-content) {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.content-text :deep(.markdown-content p) {
+  margin: 0.5em 0;
+}
+
+.content-text :deep(.markdown-content h1),
+.content-text :deep(.markdown-content h2),
+.content-text :deep(.markdown-content h3) {
+  margin: 0.5em 0 0.3em 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.result-footer {
+  padding: 12px 20px 16px;
+  background: #f9fafb;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.info-item .el-icon {
+  font-size: 12px;
+}
+
+.keywords {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.keyword-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .result-item {
   transition: all 0.3s ease;
 }
 
-.result-item:hover {
-  transform: translateY(-2px);
+/* 暗色主题适配 */
+.dark .search-result-card {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+.dark .search-result-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.dark .result-header {
+  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  border-bottom-color: #374151;
+}
+
+.dark .document-name {
+  color: #f9fafb;
+}
+
+.dark .document-icon {
+  color: #9ca3af;
+}
+
+.dark .score-text {
+  color: #d1d5db;
+}
+
+.dark .content-text {
+  color: #e5e7eb;
+}
+
+.dark .result-footer {
+  background: #374151;
+  border-top-color: #4b5563;
+}
+
+.dark .info-item {
+  color: #9ca3af;
 }
 
 .agent-page :deep(.el-card__header) {
@@ -656,7 +1539,152 @@ ${summaryData.content || summaryData.summary || '暂无摘要内容'}
   border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.agent-page :deep(.el-select .el-input__wrapper) {
-  padding: 12px 16px;
+/* 暗色主题适配 */
+.dark .premium-kb-selector {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #334155;
+}
+
+.dark .premium-kb-selector::before {
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
+}
+
+.dark .header-text .title {
+  color: #f1f5f9;
+}
+
+.dark .header-text .subtitle {
+  color: #94a3b8;
+}
+
+.dark .refresh-action-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+.dark .refresh-action-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+}
+
+.dark .custom-select-trigger {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: #475569;
+}
+
+.dark .custom-select-trigger:hover {
+  border-color: #3b82f6;
+  box-shadow: 
+    0 8px 25px -8px rgba(59, 130, 246, 0.4),
+    0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dark .custom-select-trigger.is-active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+}
+
+.dark .placeholder-icon {
+  background: linear-gradient(135deg, #334155 0%, #475569 100%);
+  color: #94a3b8;
+}
+
+.dark .placeholder-text .main-text {
+  color: #cbd5e1;
+}
+
+.dark .placeholder-text .sub-text {
+  color: #64748b;
+}
+
+.dark .selected-name {
+  color: #f1f5f9;
+}
+
+.dark .doc-count {
+  color: #94a3b8;
+}
+
+.dark .arrow-icon {
+  color: #64748b;
+}
+
+.dark :deep(.premium-kb-dropdown) {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #475569;
+}
+
+.dark .empty-icon {
+  color: #475569;
+}
+
+.dark .empty-text {
+  color: #cbd5e1;
+}
+
+.dark .empty-hint {
+  color: #64748b;
+}
+
+.dark :deep(.premium-option:hover) {
+  background: linear-gradient(135deg, #334155 0%, #475569 100%) !important;
+}
+
+.dark :deep(.premium-option.selected) {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
+  border-color: #3b82f6;
+}
+
+.dark .option-name {
+  color: #f1f5f9;
+}
+
+.dark .doc-badge {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.dark .option-description {
+  color: #94a3b8;
+}
+
+.dark .stat-item {
+  color: #64748b;
+}
+
+/* 暗色主题 - 已选择知识库信息 */
+.dark .selected-kb-info {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  border-color: #3b82f6;
+}
+
+.dark .info-title {
+  color: #dbeafe;
+}
+
+.dark .info-subtitle {
+  color: #bfdbfe;
+}
+
+.dark .info-icon {
+  color: #60a5fa;
+}
+
+/* 暗色主题 - 空状态知识库信息 */
+.dark .empty-kb-info {
+  background: linear-gradient(135deg, #92400e 0%, #a16207 100%);
+  border-color: #d97706;
+}
+
+.dark .empty-title {
+  color: #fde68a;
+}
+
+.dark .empty-subtitle {
+  color: #fef3c7;
+}
+
+.dark .empty-warning-icon {
+  color: #fbbf24;
 }
 </style>
