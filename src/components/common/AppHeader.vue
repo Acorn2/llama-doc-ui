@@ -113,22 +113,6 @@ const displayName = computed(() => {
     
     <!-- 右侧：操作按钮 -->
     <div class="flex items-center space-x-3">
-      <!-- 搜索按钮 -->
-      <el-button type="text" class="hidden md:flex !p-2">
-        <el-icon size="18">
-          <Search />
-        </el-icon>
-      </el-button>
-      
-      <!-- 通知按钮 -->
-      <el-button type="text" class="!p-2 relative">
-        <el-icon size="18">
-          <Bell />
-        </el-icon>
-        <!-- 通知小红点 -->
-        <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-      </el-button>
-      
       <!-- 主题切换 -->
       <theme-toggle />
       

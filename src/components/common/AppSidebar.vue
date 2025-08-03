@@ -53,8 +53,21 @@ const menuItems = [
 
 // 当前激活的菜单项
 const activeMenu = computed(() => {
-  const matched = route.matched.find(item => item.name)
-  return matched?.name || 'Dashboard'
+  const currentRouteName = route.name as string
+  const currentPath = route.path
+  
+  // 直接通过路由名称匹配
+  const directMatch = menuItems.find(item => item.name === currentRouteName)
+  if (directMatch) {
+    return directMatch.name
+  }
+  
+  // 通过路径匹配（用于处理嵌套路由）
+  const pathMatch = menuItems.find(item => {
+    return item.path === currentPath || currentPath.startsWith(item.path + '/')
+  })
+  
+  return pathMatch?.name || 'Dashboard'
 })
 
 // 处理菜单点击
@@ -66,9 +79,9 @@ const handleMenuClick = (path: string) => {
   }
 }
 
-// 侧边栏宽度类
+// 侧边栏宽度类 - 减少宽度以适应中文菜单
 const sidebarWidth = computed(() => {
-  return props.collapsed ? 'w-16' : 'w-64'
+  return props.collapsed ? 'w-16' : 'w-48'
 })
 </script>
 
@@ -123,9 +136,9 @@ const sidebarWidth = computed(() => {
           <button
             @click="handleMenuClick(item.path)"
             :class="[
-              'w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group',
+              'w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group relative',
               activeMenu === item.name
-                ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-r-2 border-blue-500'
+                ? 'bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/50 dark:to-blue-800/30 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-200 dark:border-blue-700'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400'
             ]"
             :title="collapsed ? item.title : ''"
@@ -157,7 +170,13 @@ const sidebarWidth = computed(() => {
             <!-- 激活指示器 -->
             <div 
               v-if="activeMenu === item.name && !collapsed"
-              class="ml-auto w-2 h-2 bg-blue-500 rounded-full"
+              class="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"
+            />
+            
+            <!-- 左侧激活条 -->
+            <div 
+              v-if="activeMenu === item.name"
+              class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-blue-500 to-blue-600 rounded-r-full"
             />
           </button>
         </li>
@@ -222,22 +241,11 @@ nav::-webkit-scrollbar-thumb:hover {
 
 /* 菜单项悬停效果增强 */
 button:hover {
-  transform: translateX(2px);
+  transform: translateX(1px);
 }
 
-button.active {
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-}
-
-/* 渐变边框效果 */
-button.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
-  border-radius: 0 2px 2px 0;
+/* 激活状态增强效果 */
+button:has(.absolute) {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 </style> 
