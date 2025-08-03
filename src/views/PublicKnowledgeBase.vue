@@ -148,25 +148,42 @@ onMounted(() => {
     </div>
 
     <!-- 搜索 -->
-    <el-card>
-      <div class="flex gap-4">
+    <el-card class="search-card">
+      <div class="search-container">
         <!-- 搜索框 -->
-        <div class="flex-1">
+        <div class="search-input-wrapper">
           <el-input
             v-model="searchQuery"
             placeholder="搜索知识库名称或描述..."
             :prefix-icon="Search"
             clearable
+            size="large"
+            class="search-input"
             @keyup.enter="handleSearch"
             @clear="clearSearch"
-          >
-            <template #append>
-              <el-button @click="handleSearch" :icon="Search">搜索</el-button>
-            </template>
-          </el-input>
+          />
         </div>
 
-        <el-button @click="clearSearch" :icon="RefreshLeft">清空</el-button>
+        <!-- 操作按钮 -->
+        <div class="search-actions">
+          <el-button 
+            type="primary" 
+            size="large"
+            @click="handleSearch" 
+            :icon="Search"
+            class="search-btn"
+          >
+            搜索
+          </el-button>
+          <el-button 
+            size="large"
+            @click="clearSearch" 
+            :icon="RefreshLeft"
+            class="clear-btn"
+          >
+            清空
+          </el-button>
+        </div>
       </div>
     </el-card>
 
@@ -268,6 +285,148 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* 搜索卡片样式 */
+.search-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.search-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: #409eff;
+}
+
+.dark .search-card {
+  border-color: #4c4d4f;
+  background: #1d1e1f;
+}
+
+.dark .search-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.2);
+}
+
+/* 搜索容器 */
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px;
+}
+
+.search-input-wrapper {
+  flex: 1;
+}
+
+.search-input {
+  border-radius: 8px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  border: 1px solid #dcdfe6;
+  transition: all 0.3s ease;
+  box-shadow: none;
+}
+
+.search-input :deep(.el-input__wrapper:hover) {
+  border-color: #409eff;
+}
+
+.search-input :deep(.el-input__wrapper.is-focus) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+}
+
+.dark .search-input :deep(.el-input__wrapper) {
+  background: #141414;
+  border-color: #4c4d4f;
+  color: #e5eaf3;
+}
+
+.dark .search-input :deep(.el-input__wrapper:hover) {
+  border-color: #409eff;
+}
+
+/* 搜索操作按钮 */
+.search-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.search-btn {
+  background: linear-gradient(135deg, #409eff 0%, #667eea 100%);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 12px 24px;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+  background: linear-gradient(135deg, #337ecc 0%, #5a6fd8 100%);
+}
+
+.clear-btn {
+  background: #f5f7fa;
+  border: 1px solid #dcdfe6;
+  color: #606266;
+  border-radius: 8px;
+  font-weight: 500;
+  padding: 12px 20px;
+  transition: all 0.3s ease;
+}
+
+.clear-btn:hover {
+  background: #ecf5ff;
+  border-color: #b3d8ff;
+  color: #409eff;
+  transform: translateY(-1px);
+}
+
+.dark .clear-btn {
+  background: #2d2d2d;
+  border-color: #4c4d4f;
+  color: #e5eaf3;
+}
+
+.dark .clear-btn:hover {
+  background: #404040;
+  border-color: #409eff;
+  color: #409eff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .search-container {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .search-input-wrapper {
+    width: 100%;
+  }
+  
+  .search-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .search-btn,
+  .clear-btn {
+    flex: 1;
+    max-width: 120px;
+  }
+}
+
+/* 知识库卡片样式 */
 .knowledge-base-card:hover {
   transform: translateY(-2px);
 }

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { extractErrorMessage } from '@/utils/error'
 
 // 创建axios实例
 export const api = axios.create({
@@ -33,12 +34,15 @@ api.interceptors.response.use(
   (error) => {
     // 处理401未授权错误
     if (error.response?.status === 401) {
-      ElMessage.error('登录已过期，请重新登录')
-      // 清除本地存储的token
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('user_info')
-      // 可以在这里跳转到登录页面
-      // router.push('/login')
+      // 如果是登录接口的401错误，不显示"登录已过期"消息，让具体页面处理
+      if (!error.config?.url?.includes('/api/v1/users/login')) {
+        ElMessage.error('登录已过期，请重新登录')
+        // 清除本地存储的token
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user_info')
+        // 可以在这里跳转到登录页面
+        // router.push('/login')
+      }
     } else if (error.response?.status === 403) {
       ElMessage.error('权限不足')
     } else if (error.response?.status === 404) {
@@ -46,8 +50,8 @@ api.interceptors.response.use(
     } else if (error.response?.status >= 500) {
       ElMessage.error('服务器错误，请稍后重试')
     } else {
-      // 显示具体的错误信息
-      const message = error.response?.data?.detail || error.response?.data?.message || '请求失败'
+      // 显示具体的错误信息，支持多种错误格式
+      const message = extractErrorMessage(error, '请求失败')
       ElMessage.error(message)
     }
     return Promise.reject(error)

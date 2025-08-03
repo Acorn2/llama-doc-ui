@@ -4,10 +4,10 @@ import type {
   DocumentQuery, 
   DocumentListResponse, 
   DocumentStatusInfo,
-  UploadResponse,
   DownloadResponse,
   CheckDuplicateResponse
-} from '@/types'
+} from '@/types/document'
+import type { UploadResponse } from '@/types/api'
 
 export class DocumentAPI {
   // 上传文档
@@ -33,6 +33,7 @@ export class DocumentAPI {
     }
     
     const response = await api.get('/api/v1/documents', { params: queryParams })
+    // 直接返回响应数据，因为新的API结构已经是正确的格式
     return response.data
   }
 

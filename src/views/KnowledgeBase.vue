@@ -329,11 +329,6 @@ const handleApplyPublic = async (kb: KnowledgeBase) => {
           <el-icon class="spinner-icon"><Loading /></el-icon>
         </div>
         <p class="loading-text">正在加载知识库...</p>
-        <div class="loading-dots">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-        </div>
       </div>
     </div>
 
@@ -1314,20 +1309,35 @@ const handleApplyPublic = async (kb: KnowledgeBase) => {
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
+  border-radius: 16px;
+  margin: 1rem 0;
 }
 
 .loading-content {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 .loading-spinner {
-  margin-bottom: 1rem;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
 }
 
 .spinner-icon {
-  font-size: 2.5rem;
-  color: #667eea;
-  animation: spin 1s linear infinite;
+  font-size: 2rem;
+  color: white;
+  animation: spin 1.2s linear infinite;
 }
 
 @keyframes spin {
@@ -1340,45 +1350,21 @@ const handleApplyPublic = async (kb: KnowledgeBase) => {
 }
 
 .loading-text {
-  font-size: 1rem;
-  color: #6b7280;
-  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  color: #4b5563;
+  font-weight: 500;
+  margin: 0;
 }
 
 .dark .loading-text {
-  color: #9ca3af;
+  color: #d1d5db;
 }
 
-.loading-dots {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
+.dark .loading-state {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  background: #667eea;
-  border-radius: 50%;
-  animation: bounce 1.4s ease-in-out infinite both;
-}
 
-.dot:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.dot:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes bounce {
-  0%, 80%, 100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

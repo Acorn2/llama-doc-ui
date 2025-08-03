@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
+import { extractErrorMessage } from '@/utils/error'
 
 // 创建axios实例
 const request = axios.create({
@@ -61,11 +62,14 @@ request.interceptors.response.use(
     if (response) {
       switch (response.status) {
         case 401:
-          ElMessage.error('登录已过期，请重新登录')
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('user_info')
-          // 可以在这里跳转到登录页面
-          // window.location.href = '/login'
+          // 如果是登录接口的401错误，不显示"登录已过期"消息，让具体页面处理
+          if (!error.config?.url?.includes('/api/v1/users/login')) {
+            ElMessage.error('登录已过期，请重新登录')
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('user_info')
+            // 可以在这里跳转到登录页面
+            // window.location.href = '/login'
+          }
           break
         case 403:
           ElMessage.error('权限不足')
@@ -74,14 +78,14 @@ request.interceptors.response.use(
           ElMessage.error('请求的资源不存在')
           break
         case 422:
-          const message = response.data?.detail || '请求参数错误'
-          ElMessage.error(message)
+          const message422 = extractErrorMessage(error, '请求参数错误')
+          ElMessage.error(message422)
           break
         case 500:
           ElMessage.error('服务器内部错误')
           break
         default:
-          const errorMessage = response.data?.detail || response.data?.message || '请求失败'
+          const errorMessage = extractErrorMessage(error, '请求失败')
           ElMessage.error(errorMessage)
       }
     } else {

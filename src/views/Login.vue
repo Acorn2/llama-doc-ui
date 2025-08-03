@@ -123,6 +123,7 @@ import { ref, reactive } from 'vue'
 import { ElMessage, ElForm } from 'element-plus'
 import { UserAPI, type LoginRequest, type RegisterRequest } from '@/api/modules/user'
 import { setToken, setUserInfo } from '@/utils/auth'
+import { handleApiError } from '@/utils/error'
 
 // 表单引用
 const loginFormRef = ref<InstanceType<typeof ElForm>>()
@@ -211,8 +212,7 @@ const handleLogin = async () => {
     window.location.href = '/dashboard'
     
   } catch (error: any) {
-    console.error('登录失败:', error)
-    const errorMessage = error.response?.data?.detail || error.message || '登录失败'
+    const errorMessage = handleApiError(error, '登录失败')
     ElMessage.error(errorMessage)
   } finally {
     loading.value = false
@@ -265,8 +265,7 @@ const handleRegister = async () => {
     })
     
   } catch (error: any) {
-    console.error('注册失败:', error)
-    const errorMessage = error.response?.data?.detail || error.message || '注册失败'
+    const errorMessage = handleApiError(error, '注册失败')
     ElMessage.error(errorMessage)
   } finally {
     registerLoading.value = false

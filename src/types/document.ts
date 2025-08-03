@@ -4,9 +4,9 @@ export type FileType = 'pdf' | 'txt' | 'doc' | 'docx' | 'unknown'
 export type StorageType = 'local' | 'cos'
 
 export interface Document {
-  id: string
+  document_id: string // 更新字段名
   filename: string
-  file_path: string // 本地路径（向后兼容）
+  file_path?: string // 本地路径（向后兼容）
   file_size: number
   file_md5: string
   pages?: number
@@ -19,7 +19,7 @@ export interface Document {
   cos_object_key?: string // COS对象键
   cos_file_url?: string   // COS文件URL
   cos_etag?: string       // COS ETag
-  storage_type: StorageType // 存储类型：local/cos
+  storage_type?: StorageType // 存储类型：local/cos
   
   // 处理时间字段
   process_start_time?: string
@@ -45,12 +45,13 @@ export interface DocumentQuery {
 }
 
 export interface DocumentListResponse {
-  data: {
-    items: Document[]
-    total: number
-    page?: number
-    page_size?: number
-  }
+  items: Document[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+  has_next: boolean
+  has_prev: boolean
 }
 
 export interface DocumentStatusInfo {
